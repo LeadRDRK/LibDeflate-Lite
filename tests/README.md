@@ -26,7 +26,9 @@ you should check if LUA_PATH an LUA_CPATH are correctly set for LuaRocks.
 **It is not supported to run two test scripts at the same time.**
 
 1. Run test suite:  
-`luajit -lluacov tests\Test.lua --verbose --shuffle`  
+`luajit tests\Test.lua --verbose --shuffle`  
+or  
+`lua tests\Test.lua --verbose --shuffle`  
 
 2. Run complete code coverage test:  
 First delete the file *luacov.stats.out*, if exists  
@@ -46,6 +48,8 @@ run the command manually in the commandline. Just open them in the Windows
 explorer. Those scripts set the working directory to the root of git repo
 directory first, then run the test commands.
 
+5. Performance Evaluation:  
+`lua tests\Test.lua --verbose --shuffle PerformanceEvaluation`  
 
 ## Other environment setup I used
 
