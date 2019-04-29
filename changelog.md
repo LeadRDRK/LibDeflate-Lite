@@ -1,3 +1,8 @@
+### v1.1.0-beta1
+
+* Increase compression speed by up to 25% on compression level 9
+
+
 ### v1.0.0-release
 
 * 2018/7/30
