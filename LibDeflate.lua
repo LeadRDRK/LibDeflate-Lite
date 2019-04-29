@@ -1291,9 +1291,6 @@ local function GetBlockLZ77Result(level, string_table, hash_tables, block_start,
 
 					if prev >= -257 then
 						local pj = prev - offset_minus_three
-						-- NOTE for author:
-						-- j < 258 and index + j <= block_end
-						-- This is the right condition
 						while (sj <= max_len_minus_one
 								and string_table[pj]
 								== string_table[sj]) do
@@ -1302,11 +1299,6 @@ local function GetBlockLZ77Result(level, string_table, hash_tables, block_start,
 						end
 					else
 						local pj = dict_string_len_plus3 + prev
-						-- NOTE for author:
-						-- j < 258 and index + j <= block_end
-						-- This is the right condition
-						--local pj = prev_table_index+3
-						--local sj = string_table_index+3
 						while (sj <= max_len_minus_one
 								and dict_string_table[pj]
 								== string_table[sj]) do
@@ -1876,15 +1868,19 @@ local function Deflate(configs, WriteBits, WriteString, FlushWriter, str
 						hash_tables[k] = nil
 					else
 						local new = {}
-						local newSize = 0
+						local new_size = 0
 						for i = 2, tSize do
 							j = t[i]
 							if block_end+1 - j <= 32768 then
-								newSize = newSize + 1
-								new[newSize] = j
+								new_size = new_size + 1
+								new[new_size] = j
 							end
 						end
-						hash_tables[k] = new
+						if new_size > 0 then
+							hash_tables[k] = new
+						else
+							hash_tables[k] = nil
+						end
 					end
 				end
 			end
