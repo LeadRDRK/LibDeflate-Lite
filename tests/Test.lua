@@ -3,7 +3,28 @@
 -- Don't run two "tests/Test.lua" at the same time,
 -- because they will conflict!!!
 
-package.path = ("?.lua;tests/LibCompress/?.lua;")..(package.path or "")
+-- Enable with commmand line argument "--enable-full-backward-compact-check"
+local ENABLE_FULL_BACKWARD_COMPACT_CHECK = false
+for argument_key, argument in pairs(_G.arg) do
+	if argument == "--enable-full-backward-compact-check" then
+		ENABLE_FULL_BACKWARD_COMPACT_CHECK = true
+		_G.arg[argument_key] = nil
+	end
+end
+
+if ENABLE_FULL_BACKWARD_COMPACT_CHECK then
+	print("======= FULL BACKWARD COMPATIBLITY CHECK IS ENABLED =======")
+end
+
+package.path = ("?.lua;tests/LibCompress/?.lua;tests/old_version/?.lua;")
+               ..(package.path or "")
+
+local OldLibDeflate = nil
+if ENABLE_FULL_BACKWARD_COMPACT_CHECK then
+	local old_version_filename = "LibDeflate_1_0_0_release"
+	OldLibDeflate = require(old_version_filename)
+	print("==== Old version name: "..old_version_filename.." ====")
+end
 
 do
 	local test_lua = io.open("tests/Test.lua")
@@ -316,6 +337,10 @@ local function AssertLongStringEqual(actual, expected, msg)
 	end
 end
 
+local function RunLibFunc(lib, func_name, ...)
+	return lib[func_name](lib, ...)
+end
+
 local function MemCheckAndBenchmarkFunc(lib, func_name, ...)
 	local memory_before
 	local memory_running
@@ -592,6 +617,112 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 						, decompress_memory_leaked
 					)
 				)
+
+				local num_of_compact_checks = 4
+				if ENABLE_FULL_BACKWARD_COMPACT_CHECK
+					and j <= num_of_compact_checks then
+
+					local old_compress_to_run = {
+						{"CompressDeflate", origin, configs},
+						{"CompressDeflateWithDict", origin, dictionary32768
+							, configs},
+						{"CompressZlib", origin, configs},
+						{"CompressZlibWithDict", origin, dictionary32768
+							, configs},
+					}
+					lu.assertEquals(#compress_to_run, num_of_compact_checks)
+
+					local old_compress_data, _ =
+					RunLibFunc(OldLibDeflate
+						, unpack(old_compress_to_run[j]))
+
+					local old_new_ratio = #old_compress_data/#compress_data
+					lu.assertTrue(old_new_ratio >= 1,
+						"The compressor of new version perform"
+						.."worse then the old version")
+					print("LibDeflate OLD ver/NEW ver compression ratio: "
+						..old_new_ratio)
+					-- New version of LibDeflate should be able to decompress
+					-- data from the old version
+					local cur_decompress_to_run = {
+						{"DecompressDeflate", old_compress_data},
+						{"DecompressDeflateWithDict", old_compress_data
+							, dictionary32768, configs},
+
+						{"DecompressZlib", old_compress_data, configs},
+						{"DecompressZlibWithDict", old_compress_data
+							, dictionary32768, configs},
+					}
+					lu.assertEquals(#cur_decompress_to_run
+						, num_of_compact_checks)
+
+					local _, _, _, decompressed_old_data, _
+					= MemCheckAndBenchmarkFunc(LibDeflate
+						, unpack(cur_decompress_to_run[j]))
+
+					AssertLongStringEqual(decompressed_old_data, origin
+						, "Current LibDeflate cannot correctly decompress"
+						.." data compressed by the old LibDeflate")
+
+
+					-- Old version of LibDeflate should be able to decompress
+					-- data from the new version
+					local old_decompress_to_run = {
+						{"DecompressDeflate", compress_data},
+						{"DecompressDeflateWithDict", compress_data
+							, dictionary32768, configs},
+
+						{"DecompressZlib", compress_data, configs},
+						{"DecompressZlibWithDict", compress_data
+							, dictionary32768, configs},
+					}
+					lu.assertEquals(#old_decompress_to_run
+						, num_of_compact_checks)
+
+					local old_decompress_data, _ =
+						RunLibFunc(OldLibDeflate
+							, unpack(old_decompress_to_run[j]))
+
+					AssertLongStringEqual(old_decompress_data, origin
+						, "Old LibDeflate cannot correctly decompress"
+						.." data compressed by the current LibDeflate")
+
+					-- Test if old version can decode data from new version
+					AssertLongStringEqual(
+						OldLibDeflate:DecodeForWoWAddonChannel(
+							LibDeflate:EncodeForWoWAddonChannel(compress_data))
+							, compress_data
+							, "Old LibDeflate cannot correctly decode"
+							.." WowAddonChannel data compressed by the"
+							.." current LibDeflate")
+					-- Test if new version can decode data from old version
+					AssertLongStringEqual(
+						LibDeflate:DecodeForWoWAddonChannel(
+						OldLibDeflate:EncodeForWoWAddonChannel(compress_data))
+							, compress_data
+							, "Current LibDeflate cannot correctly decode"
+							.." WowAddonChannel data compressed by the"
+							.." old LibDeflate")
+
+					-- Test if old version can decode data from new version
+					AssertLongStringEqual(
+						OldLibDeflate:DecodeForWoWChatChannel(
+							LibDeflate:EncodeForWoWChatChannel(compress_data))
+							, compress_data
+							, "Old LibDeflate cannot correctly decode"
+							.." WoWChatChannel data compressed by the"
+							.." current LibDeflate")
+					-- Test if new version can decode data from old version
+					AssertLongStringEqual(
+						LibDeflate:DecodeForWoWChatChannel(
+						OldLibDeflate:EncodeForWoWChatChannel(compress_data))
+							, compress_data
+							, "Current LibDeflate cannot correctly decode"
+							.." WoWChatChannel data compressed by the"
+							.." old LibDeflate")
+					print("Full backward compatibilty check OKAY for "
+						  ..compress_func_name)
+			end
 			end
 			print("")
 		end
@@ -3216,6 +3347,9 @@ for k, v in pairs(LibDeflate) do
 	print(k, type(v))
 end
 print("--------------------------------------------------------")
+if ENABLE_FULL_BACKWARD_COMPACT_CHECK then
+	print("======= FULL BACKWARD COMPATIBLITY CHECK IS ENABLED =======")
+end
 if exitCode == 0 then
 	print("TEST OK")
 else
