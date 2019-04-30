@@ -500,6 +500,9 @@ function M.adjust_err_msg_with_iter( err_msg, iter_msg )
 
     local RE_FILE_LINE = '.*:%d+: '
 
+    if err_msg == nil then
+        err_msg = "" -- LibDeflate: Workaround for buggy interpreter
+    end
     if (err_msg:find( M.SUCCESS_PREFIX ) == 1) or err_msg:match( '('..RE_FILE_LINE..')' .. M.SUCCESS_PREFIX .. ".*" ) then
         -- test finished early with success()
         return nil, M.NodeStatus.PASS
@@ -2735,6 +2738,13 @@ end
         local iter_msg
         iter_msg = self.exeRepeat and 'iteration '..self.currentCount
 
+        if type(err) == "string" then
+            -- Workaround for interpreter which returns string instead of table
+            local t = {}
+            t.msg = err
+            t.trace = err
+            err = t
+        end
         err.msg, err.status = M.adjust_err_msg_with_iter( err.msg, iter_msg )
 
         if err.status == NodeStatus.PASS then

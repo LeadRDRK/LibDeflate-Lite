@@ -5,15 +5,27 @@
 
 -- Enable with commmand line argument "--enable-full-backward-compact-check"
 local ENABLE_FULL_BACKWARD_COMPACT_CHECK = false
+
+-- Only test within Lua programs only. Don't call external program to check
+-- Some buggy Lua interpreter has problematic os.execute() function.
+local NO_EXTENDED_TESTS = false
 for argument_key, argument in pairs(_G.arg) do
 	if argument == "--enable-full-backward-compact-check" then
 		ENABLE_FULL_BACKWARD_COMPACT_CHECK = true
+		_G.arg[argument_key] = nil
+	elseif argument == "--no-extended-tests" then
+		NO_EXTENDED_TESTS = true
 		_G.arg[argument_key] = nil
 	end
 end
 
 if ENABLE_FULL_BACKWARD_COMPACT_CHECK then
 	print("======= FULL BACKWARD COMPATIBLITY CHECK IS ENABLED =======")
+end
+
+if NO_EXTENDED_TESTS then
+	print("======= no extended tests (Not calling external program "
+	      .."and not checking memory leak) =======")
 end
 
 package.path = ("?.lua;tests/third_party/?.lua;tests/old_version/?.lua;")
@@ -298,6 +310,9 @@ local function FullMemoryCollect()
 end
 
 local function RunProgram(program, input_filename, stdout_filename)
+	if NO_EXTENDED_TESTS then
+		error("Dont call run program when NO_EXTENDED_TESTS is enabled")
+	end
 	local stderr_filename = stdout_filename..".stderr"
 	local status, _, ret = os.execute(program.." "..input_filename
 		.. "> "..stdout_filename.." 2> "..stderr_filename)
@@ -532,7 +547,8 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 				end
 				WriteToFile(compress_filename, compress_data)
 
-				if not compress_running[1] == "CompressDeflate" then
+				if not compress_running[1] == "CompressDeflate"
+						and not NO_EXTENDED_TESTS then
 					local returnedStatus_puff, stdout_puff =
 						RunProgram("puff -w ", compress_filename
 							, decompress_filename)
@@ -555,31 +571,33 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 				}
 				lu.assertEquals(#decompress_to_run, #compress_to_run)
 
-				local zdeflate_decompress_to_run = {
-					"zdeflate -d <",
-					"zdeflate -d --dict tests/dictionary32768.txt <",
-					"zdeflate --zlib -d <",
-					"zdeflate --zlib -d --dict tests/dictionary32768.txt <",
-				}
-				lu.assertEquals(#zdeflate_decompress_to_run, #compress_to_run)
+				if not NO_EXTENDED_TESTS then
+					local zdeflate_decompress_to_run = {
+						"zdeflate -d <",
+						"zdeflate -d --dict tests/dictionary32768.txt <",
+						"zdeflate --zlib -d <",
+						"zdeflate --zlib -d --dict tests/dictionary32768.txt <",
+					}
+					lu.assertEquals(#zdeflate_decompress_to_run
+									, #compress_to_run)
 
-				-- Try decompress by zdeflate
-				-- zdeflate is a C program calling zlib library
-				-- which is modifed from zlib example.
-				-- zdeflate can do all compression and decompression doable
-				-- by LibDeflate (except encode and decode)
-				local returnedStatus_zdeflate, stdout_zdeflate
-					, stderr_zdeflate =
-					RunProgram(zdeflate_decompress_to_run[j], compress_filename
-						, decompress_filename)
-				lu.assertEquals(returnedStatus_zdeflate, 0
-					, compress_func_name
-					..":zdeflate decompression failed with msg "
-					..stderr_zdeflate)
-				AssertLongStringEqual(stdout_zdeflate, origin
-					, compress_func_name
-					.."zdeflate decompress result not match origin string.")
-
+					-- Try decompress by zdeflate
+					-- zdeflate is a C program calling zlib library
+					-- which is modifed from zlib example.
+					-- zdeflate can do all compression and decompression doable
+					-- by LibDeflate (except encode and decode)
+					local returnedStatus_zdeflate, stdout_zdeflate
+						, stderr_zdeflate =
+						RunProgram(zdeflate_decompress_to_run[j]
+							, compress_filename, decompress_filename)
+					lu.assertEquals(returnedStatus_zdeflate, 0
+						, compress_func_name
+						..":zdeflate decompression failed with msg "
+						..stderr_zdeflate)
+					AssertLongStringEqual(stdout_zdeflate, origin
+						, compress_func_name
+						.."zdeflate decompress result not match origin string.")
+				end
 				-- Try decompress by LibDeflate
 				local decompress_memory_leaked, decompress_memory_used,
 					decompress_time, decompress_data,
@@ -729,73 +747,78 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 
 		-- Use all avaiable strategies of zdeflate to compress the data
 		-- , and see if LibDeflate can decompress it.
-		local tmp_filename = "tests/tmp.tmp"
-		WriteToFile(tmp_filename, origin)
 
-		local zdeflate_level, zdeflate_strategy
-		local strategies = {"--filter", "--huffman", "--rle"
-			, "--fix", "--default"}
-		local unique_compress = {}
-		local uniques_compress_count = 0
-		for level=0, 8 do
-			zdeflate_level = "-"..level
-			for j=1, #strategies do
-				zdeflate_strategy = strategies[j]
-				local status, stdout, stderr =
-					RunProgram("zdeflate "..zdeflate_level
-					.." "..zdeflate_strategy
-					.." < ", tmp_filename, tmp_filename..".out")
-				lu.assertEquals(status, 0
-				, ("zdeflate cant compress the file? "
-					.."stderr: %s level: %s, strategy: %s")
-					:format(stderr, zdeflate_level, zdeflate_strategy))
-				if not unique_compress[stdout] then
-					unique_compress[stdout] = true
-					uniques_compress_count = uniques_compress_count + 1
-					local decompressData =
-						LibDeflate:DecompressDeflate(stdout)
-					AssertLongStringEqual(decompressData, origin,
-						("My decompress fail to decompress "
-						.."at zdeflate level: %s, strategy: %s")
-						:format(level, zdeflate_strategy))
+		if not NO_EXTENDED_TESTS then
+			local tmp_filename = "tests/tmp.tmp"
+			WriteToFile(tmp_filename, origin)
+
+			local zdeflate_level, zdeflate_strategy
+			local strategies = {"--filter", "--huffman", "--rle"
+				, "--fix", "--default"}
+			local unique_compress = {}
+			local uniques_compress_count = 0
+			for level=0, 8 do
+				zdeflate_level = "-"..level
+				for j=1, #strategies do
+					zdeflate_strategy = strategies[j]
+					local status, stdout, stderr =
+						RunProgram("zdeflate "..zdeflate_level
+						.." "..zdeflate_strategy
+						.." < ", tmp_filename, tmp_filename..".out")
+					lu.assertEquals(status, 0
+					, ("zdeflate cant compress the file? "
+						.."stderr: %s level: %s, strategy: %s")
+						:format(stderr, zdeflate_level, zdeflate_strategy))
+					if not unique_compress[stdout] then
+						unique_compress[stdout] = true
+						uniques_compress_count = uniques_compress_count + 1
+						local decompressData =
+							LibDeflate:DecompressDeflate(stdout)
+						AssertLongStringEqual(decompressData, origin,
+							("My decompress fail to decompress "
+							.."at zdeflate level: %s, strategy: %s")
+							:format(level, zdeflate_strategy))
+					end
 				end
 			end
+			print(
+				(">>>>> %s: %s size: %d B\n")
+					:format(is_file and "File" or "String"
+					, string_or_filename:sub(1, 40), origin:len()),
+				("Full decompress coverage test ok. unique compresses: %d\n")
+					:format(uniques_compress_count),
+				"\n")
 		end
-		print(
-			(">>>>> %s: %s size: %d B\n")
-				:format(is_file and "File" or "String"
-				, string_or_filename:sub(1, 40), origin:len()),
-			("Full decompress coverage test ok. unique compresses: %d\n")
-				:format(uniques_compress_count),
-			"\n")
 	end
 
-	FullMemoryCollect()
-	local total_memory_after = math.floor(collectgarbage("count")*1024)
+	if not NO_EXTENDED_TESTS then
+		FullMemoryCollect()
+		local total_memory_after = math.floor(collectgarbage("count")*1024)
 
-	local total_memory_difference = total_memory_before - total_memory_after
+		local total_memory_difference = total_memory_before - total_memory_after
 
-	if total_memory_difference > 0 then
-		local ignore_leak_jit = ""
-		if _G.jit then
-			ignore_leak_jit = " (Ignore when the test is run by LuaJIT)"
-		end
-		print(
-			(">>>>> %s: %s size: %d B\n")
-				:format(is_file and "File" or "String"
-				, string_or_filename:sub(1, 40), origin:len()),
-			("Actual Memory Leak in the test: %d"..ignore_leak_jit.."\n")
-				:format(total_memory_difference),
-			"\n")
-		-- ^If above "leak" is very small
-		-- , it is very likely that it is false positive.
-		if not _G.jit and total_memory_difference > 64 then
-			-- Lua JIT has some problems to garbage collect stuffs
-			-- , so don't consider as failure.
-			lu.assertTrue(false
-			, ("Fail the test because too many actual "
-				.."Memory Leak in the test: %d")
-				:format(total_memory_difference))
+		if total_memory_difference > 0 then
+			local ignore_leak_jit = ""
+			if _G.jit then
+				ignore_leak_jit = " (Ignore when the test is run by LuaJIT)"
+			end
+			print(
+				(">>>>> %s: %s size: %d B\n")
+					:format(is_file and "File" or "String"
+					, string_or_filename:sub(1, 40), origin:len()),
+				("Actual Memory Leak in the test: %d"..ignore_leak_jit.."\n")
+					:format(total_memory_difference),
+				"\n")
+			-- ^If above "leak" is very small
+			-- , it is very likely that it is false positive.
+			if not _G.jit and total_memory_difference > 64 then
+				-- Lua JIT has some problems to garbage collect stuffs
+				-- , so don't consider as failure.
+				lu.assertTrue(false
+				, ("Fail the test because too many actual "
+					.."Memory Leak in the test: %d")
+					:format(total_memory_difference))
+			end
 		end
 	end
 
@@ -828,7 +851,7 @@ local function CheckDecompressIncludingError(compress, decompress, is_zlib)
 			.."expected: %s, actual: %s, Returned status of decompress: %d")
 			:format(StringForPrint(StringToHex(d))
 			, StringForPrint(StringToHex(decompress)), decompress_status))
-	else
+	elseif not NO_EXTENDED_TESTS then
 		-- Check my decompress result with "puff"
 		local input_filename = "tests/tmpFile"
 		local inputFile = io.open(input_filename, "wb")
