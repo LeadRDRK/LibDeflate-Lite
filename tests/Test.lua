@@ -16,7 +16,7 @@ if ENABLE_FULL_BACKWARD_COMPACT_CHECK then
 	print("======= FULL BACKWARD COMPATIBLITY CHECK IS ENABLED =======")
 end
 
-package.path = ("?.lua;tests/LibCompress/?.lua;tests/old_version/?.lua;")
+package.path = ("?.lua;tests/third_party/?.lua;tests/old_version/?.lua;")
                ..(package.path or "")
 
 local OldLibDeflate = nil
@@ -204,7 +204,7 @@ end
 
 local function GetFileData(filename)
 	local f = OpenFile(filename, "rb")
-	local str = f:read("*all")
+	local str = f:read("*a")
 	f:close()
 	return str
 end
