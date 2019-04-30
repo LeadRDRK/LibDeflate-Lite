@@ -178,7 +178,7 @@ int inf(FILE *source, FILE *dest, int isZlib, char* dictionary, int dictSize)
 /* report a zlib or i/o error */
 void zerr(int ret)
 {
-    fputs("zpipe: ", stderr);
+    fputs("zdeflate: ", stderr);
     switch (ret) {
     case Z_ERRNO:
         if (ferror(stdin))
