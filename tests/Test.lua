@@ -7,8 +7,10 @@
 local ENABLE_FULL_BACKWARD_COMPACT_CHECK = false
 
 -- Only test within Lua programs only. Don't call external program to check
--- Some buggy Lua interpreter has problematic os.execute() function.
+-- Many Lua interpreter which haven't implement all
+-- Lua features needs to enable this option.
 local NO_EXTENDED_TESTS = false
+
 for argument_key, argument in pairs(_G.arg) do
 	if argument == "--enable-full-backward-compact-check" then
 		ENABLE_FULL_BACKWARD_COMPACT_CHECK = true
@@ -25,7 +27,9 @@ end
 
 if NO_EXTENDED_TESTS then
 	print("======= no extended tests (Not calling external program "
-	      .."and not checking memory leak) =======")
+	      .."and not checking memory leak "
+		  .."and not testing error messages"
+		  .."and not testing stdout/stderr of LibDeflate commandline) =======")
 end
 
 package.path = ("?.lua;tests/third_party/?.lua;tests/old_version/?.lua;")
@@ -292,20 +296,22 @@ end
 
 -- Repeatedly collect memory garbarge until memory usage no longer changes
 local function FullMemoryCollect()
-	local memory_used = collectgarbage("count")
-	local last_memory_used
-	local stable_count = 0
-	repeat
-		last_memory_used = memory_used
-		collectgarbage("collect")
-		memory_used = collectgarbage("count")
+	if not NO_EXTENDED_TESTS then
+		local memory_used = collectgarbage("count")
+		local last_memory_used
+		local stable_count = 0
+		repeat
+			last_memory_used = memory_used
+			collectgarbage("collect")
+			memory_used = collectgarbage("count")
 
-		if memory_used >= last_memory_used then
-			stable_count = stable_count + 1
-		else
-			stable_count = 0
-		end
-	until stable_count == 10
+			if memory_used >= last_memory_used then
+				stable_count = stable_count + 1
+			else
+				stable_count = 0
+			end
+		until stable_count == 10
+	end
 	-- Stop full memory collect until memory does not decrease for 10 times.
 end
 
@@ -971,10 +977,6 @@ local function CheckDictEffectiveness(str, dictionary, dict_str
 		- compress_dict:len()
 	if not dontCheckEffectiveness then
 		lu.assertTrue(byte_smaller_with_dict > 0)
-		print((">>> %d bytes smaller with (deflate dict) "..
-			"DICT: %s, DATA: %s")
-			:format(byte_smaller_with_dict
-				, StringForPrint(dict_str), StringForPrint(str)))
 	end
 
 	local zlib_compress_dict = LibDeflate:
@@ -994,9 +996,6 @@ local function CheckDictEffectiveness(str, dictionary, dict_str
 	-- the adler32 of dictionary
 	if not dontCheckEffectiveness then
 		lu.assertTrue(zlib_byte_smaller_with_dict > -4)
-		print((">>> %d bytes smaller with (zlib dict) DICT: %s DATA: %s")
-			:format(zlib_byte_smaller_with_dict
-			, StringForPrint(dict_str), StringForPrint(str)))
 	end
 
 	return compress_dict, compress_no_dict
@@ -2881,22 +2880,16 @@ TestErrors = {}
 
 
 local lua_program = "lua"
-local function RunCommandline(args, stdin)
-	local input_filename = "tests/test.stdin"
-	if stdin then
-		WriteToFile(input_filename, stdin)
-	else
-		WriteToFile(input_filename, "")
-	end
-	local stdout_filename = "tests/test.stderr"
-	local stderr_filename = "tests/test.stdout"
+local function RunCommandline(args)
+	local stdout_filename = "tests/test.stdout"
+	local stderr_filename = "tests/test.stderr"
 	local libdeflate_file = "./LibDeflate.lua"
 	if os.getenv("OS") and os.getenv("OS"):find("Windows") then
 		libdeflate_file = "LibDeflate.lua"
 	end
 	local status, _, ret = os.execute(lua_program.." "..libdeflate_file.." "
-		..args.." >"..input_filename
-		.. "> "..stdout_filename.." 2> "..stderr_filename)
+		..args
+		.. " >"..stdout_filename.." 2>"..stderr_filename)
 
 	local returned_status
 	if type(status) == "number" then -- lua 5.1
@@ -2908,104 +2901,112 @@ local function RunCommandline(args, stdin)
 			-- Lua bug on Windows when the returned value is -1, ret is 0
 		end
 	end
-
-	local stdout = GetFileData(stdout_filename)
-	local stderr = GetFileData(stderr_filename)
+	local stdout = ""
+	local stderr = ""
+	if not NO_EXTENDED_TESTS then
+		stdout = GetFileData(stdout_filename)
+		stderr = GetFileData(stderr_filename)
+	end
 	return returned_status, stdout, stderr
 end
 
 TestCommandLine = {}
-	function TestCommandLine:TestHelp()
-		local returned_status, stdout, stderr = RunCommandline("-h")
-		lu.assertEquals(returned_status, 0)
+	if not NO_EXTENDED_TESTS then
+		function TestCommandLine:TestHelp()
+			local returned_status, stdout, stderr = RunCommandline("-h")
+			lu.assertEquals(returned_status, 0)
 
-		local str = LibDeflate._COPYRIGHT
-			.."\nUsage: lua LibDeflate.lua [OPTION] [INPUT] [OUTPUT]\n"
-			.."  -0    store only. no compression.\n"
-			.."  -1    fastest compression.\n"
-			.."  -9    slowest and best compression.\n"
-			.."  -d    do decompression instead of compression.\n"
-			.."  --dict <filename> specify the file that contains"
-			.." the entire preset dictionary.\n"
-			.."  -h    give this help.\n"
-			.."  --strategy <fixed/huffman_only/dynamic>"
-			.." specify a special compression strategy.\n"
-			.."  -v    print the version and copyright info.\n"
-			.."  --zlib  use zlib format instead of raw deflate.\n"
+			local str = LibDeflate._COPYRIGHT
+				.."\nUsage: lua LibDeflate.lua [OPTION] [INPUT] [OUTPUT]\n"
+				.."  -0    store only. no compression.\n"
+				.."  -1    fastest compression.\n"
+				.."  -9    slowest and best compression.\n"
+				.."  -d    do decompression instead of compression.\n"
+				.."  --dict <filename> specify the file that contains"
+				.." the entire preset dictionary.\n"
+				.."  -h    give this help.\n"
+				.."  --strategy <fixed/huffman_only/dynamic>"
+				.." specify a special compression strategy.\n"
+				.."  -v    print the version and copyright info.\n"
+				.."  --zlib  use zlib format instead of raw deflate.\n"
 
-		if stdout:find(str, 1, true) then
-			lu.assertStrContains(stdout, str)
-		else
-			str = str:gsub("\n", "\r\n")
-			lu.assertStrContains(stdout, str)
+			if stdout:find(str, 1, true) then
+				lu.assertStrContains(stdout, str)
+			else
+				str = str:gsub("\n", "\r\n")
+				lu.assertStrContains(stdout, str)
+			end
+			lu.assertEquals(stderr, "")
 		end
-		lu.assertEquals(stderr, "")
-	end
 
-	function TestCommandLine:TestCopyright()
-		local returned_status, stdout, stderr = RunCommandline("-v")
-		lu.assertEquals(returned_status, 0)
+		function TestCommandLine:TestCopyright()
+			local returned_status, stdout, stderr = RunCommandline("-v")
+			lu.assertEquals(returned_status, 0)
 
-		local str = LibDeflate._COPYRIGHT
+			local str = LibDeflate._COPYRIGHT
 
-		if stdout:find(str, 1, true) then
-			lu.assertStrContains(stdout, str)
-		else
-			str = str:gsub("\n", "\r\n")
-			lu.assertStrContains(stdout, str)
+			if stdout:find(str, 1, true) then
+				lu.assertStrContains(stdout, str)
+			else
+				str = str:gsub("\n", "\r\n")
+				lu.assertStrContains(stdout, str)
+			end
+			lu.assertEquals(stderr, "")
 		end
-		lu.assertEquals(stderr, "")
-	end
 
-	function TestCommandLine:TestErrors()
-		local returned_status, stdout, stderr
+		function TestCommandLine:TestErrors()
+			local returned_status, stdout, stderr
 
-		returned_status, stdout, stderr =
-			RunCommandline("-invalid")
-		lu.assertNotEquals(returned_status, 0)
-		lu.assertEquals(stdout, "")
-		lu.assertStrContains(stderr, ("LibDeflate: Invalid argument: %s")
-				:format("-invalid"))
+			returned_status, stdout, stderr =
+				RunCommandline("-invalid")
+			lu.assertNotEquals(returned_status, 0)
+			lu.assertEquals(stdout, "")
+			lu.assertStrContains(stderr, ("LibDeflate: Invalid argument: %s")
+					:format("-invalid"))
 
-		returned_status, stdout, stderr =
-			RunCommandline("tests/data/reference/item_strings.txt --dict")
-		lu.assertNotEquals(returned_status, 0)
-		lu.assertEquals(stdout, "")
-		lu.assertStrContains(stderr, "You must speicify the dict filename")
+			returned_status, stdout, stderr =
+				RunCommandline("tests/data/reference/item_strings.txt --dict")
+			lu.assertNotEquals(returned_status, 0)
+			lu.assertEquals(stdout, "")
+			lu.assertStrContains(stderr, "You must speicify the dict filename")
 
-		returned_status, stdout, stderr =
-			RunCommandline("tests/data/reference/item_strings.txt --dict DNE")
-		lu.assertNotEquals(returned_status, 0)
-		lu.assertEquals(stdout, "")
-		lu.assertStrContains(stderr,
-			("LibDeflate: Cannot read the dictionary file '%s':")
-			:format("DNE"))
+			returned_status, stdout, stderr =
+				RunCommandline(
+					"tests/data/reference/item_strings.txt --dict DNE")
+			lu.assertNotEquals(returned_status, 0)
+			lu.assertEquals(stdout, "")
+			lu.assertStrContains(stderr,
+				("LibDeflate: Cannot read the dictionary file '%s':")
+				:format("DNE"))
 
-		returned_status, stdout, stderr =
-			RunCommandline("DNE DNE")
-		lu.assertNotEquals(returned_status, 0)
-		lu.assertEquals(stdout, "")
-		lu.assertStrContains(stderr, "LibDeflate: Cannot read the file 'DNE':")
+			returned_status, stdout, stderr =
+				RunCommandline("DNE DNE")
+			lu.assertNotEquals(returned_status, 0)
+			lu.assertEquals(stdout, "")
+			lu.assertStrContains(stderr
+				, "LibDeflate: Cannot read the file 'DNE':")
 
-		returned_status, stdout, stderr =
-			RunCommandline("tests/data/reference/item_strings.txt ..")
-		lu.assertNotEquals(returned_status, 0)
-		lu.assertEquals(stdout, "")
-		lu.assertStrContains(stderr, "LibDeflate: Cannot write the file '..':")
+			returned_status, stdout, stderr =
+				RunCommandline("tests/data/reference/item_strings.txt ..")
+			lu.assertNotEquals(returned_status, 0)
+			lu.assertEquals(stdout, "")
+			lu.assertStrContains(stderr
+				, "LibDeflate: Cannot write the file '..':")
 
-		returned_status, stdout, stderr =
-			RunCommandline("tests/data/reference/item_strings.txt")
-		lu.assertNotEquals(returned_status, 0)
-		lu.assertEquals(stdout, "")
-		lu.assertStrContains(stderr, "LibDeflate:"
-			.." You must specify both input and output files.")
+			returned_status, stdout, stderr =
+				RunCommandline("tests/data/reference/item_strings.txt")
+			lu.assertNotEquals(returned_status, 0)
+			lu.assertEquals(stdout, "")
+			lu.assertStrContains(stderr, "LibDeflate:"
+				.." You must specify both input and output files.")
 
-		returned_status, stdout, stderr =
-			RunCommandline("-d tests/data/reference/item_strings.txt"
-						.." tests/test_commandline.tmp")
-		lu.assertNotEquals(returned_status, 0)
-		lu.assertEquals(stdout, "")
-		lu.assertStrContains(stderr, "LibDeflate: Decompress fails.")
+			returned_status, stdout, stderr =
+				RunCommandline("-d tests/data/reference/item_strings.txt"
+							.." tests/test_commandline.tmp")
+			lu.assertNotEquals(returned_status, 0)
+			lu.assertEquals(stdout, "")
+			lu.assertStrContains(stderr, "LibDeflate: Decompress fails.")
+		end
 	end
 
 	function TestCommandLine:TestCompressAndDecompress()
@@ -3058,9 +3059,13 @@ TestCommandLine = {}
 					RunCommandline(args[k].." "..addition_arg
 							.." "..inputs[k]
 							.." tests/test_commandline.tmp")
-				lu.assertEquals(stdout, "")
-				lu.assertStrContains(stderr, ("Successfully writes %d bytes")
-					:format(GetFileData("tests/test_commandline.tmp"):len()))
+				if not NO_EXTENDED_TESTS then
+					lu.assertEquals(stdout, "")
+					lu.assertStrContains(stderr
+						, ("Successfully writes %d bytes")
+						:format(GetFileData(
+							"tests/test_commandline.tmp"):len()))
+				end
 				lu.assertEquals(returned_status, 0)
 				local result
 				if func_name:find("Dict") then
@@ -3151,6 +3156,9 @@ local function AddAllToCoverageTest(suite)
 	end
 end
 
+if NO_EXTENDED_TESTS then
+	TestErrors = nil
+end
 -- Run "luajit -lluacov tests/Test.lua CodeCoverage" for test coverage test.
 CodeCoverage = {}
 	AddAllToCoverageTest(TestBasicStrings)
@@ -3158,7 +3166,9 @@ CodeCoverage = {}
 	AddAllToCoverageTest(TestInternals)
 	AddAllToCoverageTest(TestPresetDict)
 	AddAllToCoverageTest(TestEncode)
-	AddAllToCoverageTest(TestErrors)
+	if not NO_EXTENDED_TESTS then
+		AddAllToCoverageTest(TestErrors)
+	end
 	AddToCoverageTest(TestMyData, "TestSmallTest")
 	AddToCoverageTest(TestThirdPartyBig, "Testptt5")
 	AddToCoverageTest(TestThirdPartyBig, "TestGeoProtodata")
