@@ -33,8 +33,6 @@ matrix:
       os: mac
     - env: LUA=luajit2.0.4
       os: mac
-    - env: LUA=luajit2.1.0-beta3
-      os: mac
     allow_failures:
     - env: LUA=luaj3.0.1 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
       jdk: oraclejdk8
@@ -46,8 +44,6 @@ matrix:
       os: linux
     - env: LUA=luajit2.1.0-beta3
       os: linux
-    - env: LUA=luajit2.1.0-beta3
-      os: mac
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y libxml2-utils; fi
