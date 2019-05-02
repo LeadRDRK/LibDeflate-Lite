@@ -103,7 +103,7 @@ do
 	LibDeflate._COPYRIGHT = _COPYRIGHT
 end
 
--- localize Lua api for faster access.
+-- localize ALL Lua apis we use for faster access.
 local assert = assert
 local error = error
 local pairs = pairs
@@ -116,6 +116,34 @@ local table_concat = table.concat
 local table_sort = table.sort
 local tostring = tostring
 local type = type
+
+-- Is the current Lua interpreter supports to modify table
+-- during pairs()? like the following
+-- for k, v in pairs(tbl) do
+--     tbl[k] = nil
+-- end
+-- All feature-complete lua interpreter should support this.
+-- Known interpreter which does not support this:
+-- LuaJ 2.0.3
+local _interpreter_support_tbl_modify_during_pairs
+
+if type(pcall) ~= "function" then
+	-- No way to safely test it without throw, assume false
+	_interpreter_support_tbl_modify_during_pairs = false
+else
+	local function TestTblModifyDuringPairs()
+		local t = {}
+		-- Not init during table defintion, to minimize Lua feature we use.
+		t["a"] = 1
+		t["b"] = 2
+		t["c"] = 3
+		for k, _ in pairs(t) do
+			t[k] = nil
+		end
+	end
+	_interpreter_support_tbl_modify_during_pairs
+		= pcall(TestTblModifyDuringPairs) and true or false
+end
 
 -- Converts i to 2^i, (0<=i<=32)
 -- This is used to implement bit left shift and bit right shift.
@@ -1861,27 +1889,62 @@ local function Deflate(configs, WriteBits, WriteString, FlushWriter, str
 				j = j + 1
 			end
 
-			for k, t in pairs(hash_tables) do
-				local tSize = #t
-				if tSize > 0 and block_end+1 - t[1] > 32768 then
-					if tSize == 1 then
-						hash_tables[k] = nil
-					else
-						local new = {}
-						local new_size = 0
-						for i = 2, tSize do
-							j = t[i]
-							if block_end+1 - j <= 32768 then
-								new_size = new_size + 1
-								new[new_size] = j
+			if _interpreter_support_tbl_modify_during_pairs then
+				for k, t in pairs(hash_tables) do
+					local tSize = #t
+					if tSize > 0 and block_end+1 - t[1] > 32768 then
+						if tSize == 1 then
+							hash_tables[k] = nil
+						else
+							local new = {}
+							local new_size = 0
+							for i = 2, tSize do
+								j = t[i]
+								if block_end+1 - j <= 32768 then
+									new_size = new_size + 1
+									new[new_size] = j
+								end
+							end
+							if new_size > 0 then
+								hash_tables[k] = new
+							else
+								hash_tables[k] = nil
 							end
 						end
-						if new_size > 0 then
-							hash_tables[k] = new
+					end
+				end
+			else
+				-- Does NOT support table modify during pairs()
+				-- Store (key, values) to be updated in another table first.
+				local updated_kv = {}
+				local updated_kv_tblsize = 0
+				for k, t in pairs(hash_tables) do
+					local tSize = #t
+					if tSize > 0 and block_end+1 - t[1] > 32768 then
+						updated_kv_tblsize = updated_kv_tblsize + 2
+						updated_kv[updated_kv_tblsize-1] = k
+						if tSize == 1 then
+							updated_kv[updated_kv_tblsize] = nil
 						else
-							hash_tables[k] = nil
+							local new = {}
+							local new_size = 0
+							for i = 2, tSize do
+								j = t[i]
+								if block_end+1 - j <= 32768 then
+									new_size = new_size + 1
+									new[new_size] = j
+								end
+							end
+							if new_size > 0 then
+								updated_kv[updated_kv_tblsize] = new
+							else
+								updated_kv[updated_kv_tblsize] = nil
+							end
 						end
 					end
+				end
+				for i=1, updated_kv_tblsize, 2 do
+					hash_tables[updated_kv[i]] = updated_kv[i+1]
 				end
 			end
 		end

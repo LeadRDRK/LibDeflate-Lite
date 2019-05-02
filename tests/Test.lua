@@ -11,12 +11,19 @@ local ENABLE_FULL_BACKWARD_COMPACT_CHECK = false
 -- Lua features needs to enable this option.
 local NO_EXTENDED_TESTS = false
 
-for argument_key, argument in pairs(_G.arg) do
+-- Some interpreter is too slow that exceeding the time limit of online CI
+-- Number of tests with big inputs must be reduced in this case.
+local LESS_BIG_TESTS = false
+
+for argument_key, argument in ipairs(_G.arg) do
 	if argument == "--enable-full-backward-compact-check" then
 		ENABLE_FULL_BACKWARD_COMPACT_CHECK = true
 		_G.arg[argument_key] = nil
 	elseif argument == "--no-extended-tests" then
 		NO_EXTENDED_TESTS = true
+		_G.arg[argument_key] = nil
+	elseif argument == "--less-big-tests" then
+		LESS_BIG_TESTS = true
 		_G.arg[argument_key] = nil
 	end
 end
@@ -29,7 +36,15 @@ if NO_EXTENDED_TESTS then
 	print("======= no extended tests (Not calling external program "
 	      .."and not checking memory leak "
 		  .."and not testing error messages"
-		  .."and not testing stdout/stderr of LibDeflate commandline) =======")
+		  .."and not testing stdout/stderr of LibDeflate commandline)"
+		  .."and code coverage tests are disabled =======")
+end
+
+-- Some interpreter is too slow that exceeding the time limit of online CI
+-- Number of tests with big inputs must be reduced in this case.
+if LESS_BIG_TESTS then
+	print("======= Less tests with big input are enabled"
+		  .."and code coverage tests are disabled =======")
 end
 
 package.path = ("?.lua;tests/third_party/?.lua;tests/old_version/?.lua;")
@@ -1323,9 +1338,11 @@ TestMyData = {}
 		CheckCompressAndDecompressFile("tests/data/smalltest.txt", "all")
 	end
 
+if not LESS_BIG_TESTS then
 	function TestMyData:TestReconnectData()
 		CheckCompressAndDecompressFile("tests/data/reconnectData.txt", "all")
 	end
+end -- if not LESS_BIG_TESTS
 
 TestThirdPartySmall = {}
 	function TestThirdPartySmall:TestEmpty()
@@ -1403,6 +1420,7 @@ TestThirdPartyMedium = {}
 		CheckCompressAndDecompressFile("tests/data/3rdparty/sum", "all")
 	end
 
+if not LESS_BIG_TESTS then
 Test_64K = {}
 	function Test_64K:Test64KFile()
 		CheckCompressAndDecompressFile("tests/data/64k.txt", "all")
@@ -1471,12 +1489,22 @@ Test_64K = {}
 		end
 		CheckCompressAndDecompressString(table.concat(repeated), "all")
 	end
+end  -- if not LESS_BIG_TESTS
 
--- > 64K
 TestThirdPartyBig = {}
+	function TestThirdPartyBig:TestAsyoulik()
+		CheckCompressAndDecompressFile("tests/data/3rdparty/asyoulik.txt"
+			, {0,1,2,3,4,5})
+	end
+
+if not LESS_BIG_TESTS then
 	function TestThirdPartyBig:TestBackward65536()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/backward65536"
 			, "all")
+	end
+	function TestThirdPartyBig:TestCompressedRepeated()
+		CheckCompressAndDecompressFile(
+			"tests/data/3rdparty/compressed_repeated", {0,1,2,3,4,5})
 	end
 	function TestThirdPartyBig:TestHTML()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/html"
@@ -1493,14 +1521,6 @@ TestThirdPartyBig = {}
 	function TestThirdPartyBig:TestFireworksJpeg()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/fireworks.jpeg"
 			, {0,1,2,3,4,5})
-	end
-	function TestThirdPartyBig:TestAsyoulik()
-		CheckCompressAndDecompressFile("tests/data/3rdparty/asyoulik.txt"
-			, {0,1,2,3,4,5})
-	end
-	function TestThirdPartyBig:TestCompressedRepeated()
-		CheckCompressAndDecompressFile(
-			"tests/data/3rdparty/compressed_repeated", {0,1,2,3,4,5})
 	end
 	function TestThirdPartyBig:TestAlice29()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/alice29.txt"
@@ -1546,7 +1566,9 @@ TestThirdPartyBig = {}
 		CheckCompressAndDecompressFile("tests/data/3rdparty/kennedy.xls"
 			, {0,1,2,3,4})
 	end
+end -- if not LESS_BIG_TESTS
 
+if not LESS_BIG_TESTS then
 TestWoWData = {}
 	function TestWoWData:TestWarlockWeakAuras()
 		CheckCompressAndDecompressFile("tests/data/warlockWeakAuras.txt"
@@ -1556,6 +1578,7 @@ TestWoWData = {}
 		CheckCompressAndDecompressFile("tests/data/totalrp3.txt"
 			, {0,1,2,3,4})
 	end
+end -- if not LESS_BIG_TESTS
 
 TestDecompress = {}
 	-- Test from puff
@@ -2502,6 +2525,7 @@ TestEncode = {}
 	end
 
 TestCompressStrategy = {}
+if not LESS_BIG_TESTS then
 	function TestCompressStrategy:TestHtml_x_4Fixed()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/html_x_4"
 			, {0,1,3,4}, "fixed")
@@ -2514,6 +2538,7 @@ TestCompressStrategy = {}
 		CheckCompressAndDecompressFile("tests/data/3rdparty/html_x_4"
 			, {0,1,2,3,4}, "dynamic")
 	end
+end -- if not LESS_BIG_TESTS
 	function TestCompressStrategy:TestAsyoulikFixed()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/asyoulik.txt"
 			, {0,1,3,4}, "fixed")
@@ -3160,7 +3185,8 @@ if NO_EXTENDED_TESTS then
 	TestErrors = nil
 end
 -- Run "luajit -lluacov tests/Test.lua CodeCoverage" for test coverage test.
-CodeCoverage = {}
+if not LESS_BIG_TESTS and not NO_EXTENDED_TESTS then
+	CodeCoverage = {}
 	AddAllToCoverageTest(TestBasicStrings)
 	AddAllToCoverageTest(TestDecompress)
 	AddAllToCoverageTest(TestInternals)
@@ -3175,6 +3201,7 @@ CodeCoverage = {}
 	AddToCoverageTest(TestCompressStrategy, "TestIsFixedStrategyInEffect")
 	AddToCoverageTest(TestCompressStrategy, "TestIsDynamicStrategyInEffect")
 	AddToCoverageTest(TestCompressStrategy, "TestIsHuffmanOnlyStrategyInEffect")
+end
 
 -- Run "lua tests/Test.lua CommandLineCodeCoverage "
 -- for test coverage test and CommandLineCodeCoverage
