@@ -26,13 +26,13 @@ matrix:
     - env: LUA=luajit2.1.0-beta3
       os: linux
     - env: LUA=lua5.1.4
-      os: mac
+      os: osx
     - env: LUA=lua5.2.4
-      os: mac
+      os: osx
     - env: LUA=lua5.3.3
-      os: mac
+      os: osx
     - env: LUA=luajit2.0.4
-      os: mac
+      os: osx
     allow_failures:
     - env: LUA=luaj3.0.1 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
       jdk: oraclejdk8
@@ -51,6 +51,7 @@ before_install:
   - bash .travis/install_lua.sh
   - bash .travis/install_compressor_decompressor.sh
   - bash .travis/install_luarocks_packages.sh
+  - source .travis/setenv_post_install.sh
 
 script:
   - hash -r
