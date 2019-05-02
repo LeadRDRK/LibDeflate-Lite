@@ -57,7 +57,8 @@ before_install:
   - bash .travis/install_luarocks_packages.sh
 
 script:
-  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then luacheck -g -u .; fi
+  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then luacheck LibDeflate.lua; fi
+  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then luacheck -g -u tests/Test.lua; fi
   - if [[ -z "${NO_EXTENDED_TESTS} ]]; then bash tests/dev_scripts/release.sh; fi
   - if [[ -z "${NO_EXTENDED_TESTS} ]]; then cd docs && ldoc . && cd ..; fi
   - lua examples/example.lua
