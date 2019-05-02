@@ -407,14 +407,38 @@ end
 
 local function GetFirstBlockType(compressed_data, isZlib)
 	local first_block_byte_index = 1
-	if isZlib then
+	if isZlib == 1 then
 		local byte2 = string.byte(compressed_data, 2, 2)
 		local has_dict = ((byte2-byte2%32)/32)%2
 		if has_dict == 1 then
 			first_block_byte_index = 7
 		else
 			first_block_byte_index = 3
-		end
+        end
+    elseif isZlib == 2 then
+        local band = function(a, b)
+            local p,c=1,0
+            while a>0 and b>0 do
+                local ra,rb=a%2,b%2
+                if ra+rb>1 then c=c+p end
+                a,b,p=(a-ra)/2,(b-rb)/2,p*2
+            end
+            return c
+        end
+        local offset = 10
+        if band(string.byte(compressed_data, 4), 4) == 4 then
+            offset = offset + string.byte(compressed_data, 11) * 256 + string.byte(compressed_data, 12)
+        end
+        if band(string.byte(compressed_data, 4), 8) == 8 then
+            while string.byte(compressed_data, offset) ~= 0 do offset = offset + 1 end
+        end
+        if band(string.byte(compressed_data, 4), 16) == 16 then
+            while string.byte(compressed_data, offset) ~= 0 do offset = offset + 1 end
+        end
+        if band(string.byte(compressed_data, 4), 2) == 2 then
+            offset = offset + 2
+        end
+        first_block_byte_index = offset + 1
 	end
 	local first_byte = string.byte(compressed_data
 		, first_block_byte_index, first_block_byte_index)
@@ -508,6 +532,7 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 					, configs},
 				{"CompressZlib", origin, configs},
 				{"CompressZlibWithDict", origin, dictionary32768, configs},
+				{"CompressGzip", origin, configs},
 			}
 
 			for j, compress_running in ipairs(compress_to_run) do
@@ -549,7 +574,9 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 				-- to see if decompression still works.
 				compress_data = PutRandomBitsInPaddingBits(compress_data
 					, compress_pad_bitlen)
-				local isZlib = compress_func_name:find("Zlib")
+                local isZlib = 0
+                if compress_func_name:find("Zlib") then isZlib = 1
+                elseif compress_func_name:find("Gzip") then isZlib = 2 end
 				if strategy == "fixed" then
 					lu.assertEquals(GetFirstBlockType(compress_data, isZlib)
 					, (level == 0) and 0 or 1,
@@ -589,6 +616,7 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 					{"DecompressZlib", compress_data, configs},
 					{"DecompressZlibWithDict", compress_data
 						, dictionary32768, configs},
+					{"DecompressGzip", compress_data},
 				}
 				lu.assertEquals(#decompress_to_run, #compress_to_run)
 
@@ -598,6 +626,7 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 						"zdeflate -d --dict tests/dictionary32768.txt <",
 						"zdeflate --zlib -d <",
 						"zdeflate --zlib -d --dict tests/dictionary32768.txt <",
+						"gzip -d <",
 					}
 					lu.assertEquals(#zdeflate_decompress_to_run
 									, #compress_to_run)
@@ -2056,6 +2085,44 @@ end -- if not LESS_BIG_TESTS
 		lu.assertEquals(LibDeflate:Adler32(adler32Test), 0x5D9BAF5D)
 		local adler32Test2 = GetFileData("tests/data/adler32Test2.txt")
 		lu.assertEquals(LibDeflate:Adler32(adler32Test2), 0xD6A07E29)
+    end
+
+    function TestInternals:TestCRC32()
+		lu.assertEquals(LibDeflate:CRC32(""), 0)
+		lu.assertEquals(LibDeflate:CRC32("1"), 0x83DCEFB7)
+		lu.assertEquals(LibDeflate:CRC32("12"), 0x4F5344CD)
+		lu.assertEquals(LibDeflate:CRC32("123"), 0x884863D2)
+		lu.assertEquals(LibDeflate:CRC32("1234"), 0x9BE3E0A3)
+		lu.assertEquals(LibDeflate:CRC32("12345"), 0xCBF53A1C)
+		lu.assertEquals(LibDeflate:CRC32("123456"), 0x0972D361)
+		lu.assertEquals(LibDeflate:CRC32("1234567"), 0x5003699F)
+		lu.assertEquals(LibDeflate:CRC32("12345678"), 0x9AE0DAAF)
+		lu.assertEquals(LibDeflate:CRC32("123456789"), 0xCBF43926)
+		lu.assertEquals(LibDeflate:CRC32("1234567890"), 0x261DAEE5)
+		lu.assertEquals(LibDeflate:CRC32("1234567890a"), 0x38F1B51A)
+		lu.assertEquals(LibDeflate:CRC32("1234567890ab"), 0x8CE4E736)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abc"), 0xC98FAE11)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcd"), 0xF2A4E590)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcde"), 0x1F274DFB)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdef"), 0x5CA32739)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefg"), 0x5E8D3059)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefgh"), 0x83826287)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghi"), 0x9533A290)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghij"), 0x8FFFC72D)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghijk"), 0x4D32F4EF)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghijkl")
+			, 0xA6FE0FE3)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghijklm")
+			, 0xD8A4BFA5)
+		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghijklmn")
+			, 0xDE6C500A)
+		lu.assertEquals(LibDeflate:CRC32(
+			"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+			, 0xED3E1945)
+		local adler32Test = GetFileData("tests/data/adler32Test.txt")
+		lu.assertEquals(LibDeflate:CRC32(adler32Test), 0x6E99FB92)
+		local adler32Test2 = GetFileData("tests/data/adler32Test2.txt")
+		lu.assertEquals(LibDeflate:CRC32(adler32Test2), 0x01294F1F)
 	end
 
 	function TestInternals:TestLibStub()
@@ -2573,14 +2640,14 @@ TestCompressStrategy = {}
 			LibDeflate:CompressDeflate(str):len(), 517)
 		lu.assertEquals(
 			GetFirstBlockType(
-				LibDeflate:CompressDeflate(str, {strategy = "fixed"}), false)
+				LibDeflate:CompressDeflate(str, {strategy = "fixed"}), 0)
 			, 1)
 		lu.assertEquals(
 			LibDeflate:CompressDeflate(str, {strategy = "fixed"}):len()
 			, 542)
 		lu.assertEquals(
 			GetFirstBlockType(
-				LibDeflate:CompressZlib(str, {strategy = "fixed"}, true))
+				LibDeflate:CompressZlib(str, {strategy = "fixed"}), 1)
 			, 1)
 		lu.assertEquals(
 			LibDeflate:CompressZlib(str, {strategy = "fixed"}):len()
@@ -2614,14 +2681,14 @@ TestCompressStrategy = {}
 			LibDeflate:CompressDeflate(str):len(), 517)
 		lu.assertEquals(
 			GetFirstBlockType(
-				LibDeflate:CompressDeflate(str, {strategy = "dynamic"}), false)
+				LibDeflate:CompressDeflate(str, {strategy = "dynamic"}), 0)
 			, 2)
 		lu.assertEquals(
 			LibDeflate:CompressDeflate(str, {strategy = "dynamic"}):len()
 			, 536)
 		lu.assertEquals(
 			GetFirstBlockType(
-				LibDeflate:CompressZlib(str, {strategy = "dynamic"}, true))
+				LibDeflate:CompressZlib(str, {strategy = "dynamic"}), 1)
 			, 2)
 		lu.assertEquals(
 			LibDeflate:CompressZlib(str, {strategy = "dynamic"}):len()
@@ -2954,7 +3021,8 @@ TestCommandLine = {}
 			.."  -9    slowest and best compression.\n"
 			.."  -d    do decompression instead of compression.\n"
 			.."  --dict <filename> specify the file that contains"
-			.." the entire preset dictionary.\n"
+            .." the entire preset dictionary.\n"
+            .."  --gzip  use gzip format instead of raw deflate.\n"
 			.."  -h    give this help.\n"
 			.."  --strategy <fixed/huffman_only/dynamic>"
 			.." specify a special compression strategy.\n"
@@ -3092,8 +3160,7 @@ TestCommandLine = {}
 				if not NO_EXTENDED_TESTS then
 					lu.assertEquals(stdout, "")
 					lu.assertStrContains(stderr
-						, ("Successfully writes %d bytes")
-						:format(GetFileData(
+						, ("Successfully writes %d bytes"):format(GetFileData(
 							"tests/test_commandline.tmp"):len()))
 				end
 				lu.assertEquals(returned_status, 0)
@@ -3153,11 +3220,14 @@ TestExported = {}
 			DecompressDeflate = "function",
 			CompressDeflateWithDict = "function",
 			DecompressZlibWithDict = "function",
+			CompressGzip = "function",
+			DecompressGzip = "function",
 			CreateCodec = "function",
 			DecodeForWoWChatChannel = "function",
 			internals = "table",
 			_VERSION = "string",
 			Adler32 = "function",
+			CRC32 = "function",
 			CreateDictionary = "function",
 			CompressZlibWithDict = "function",
 			EncodeForPrint = "function",
