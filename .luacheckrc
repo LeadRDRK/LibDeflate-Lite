@@ -8,7 +8,4 @@ max_comment_line_length = 120
 files['tests/LibDeflateTest.lua'].global = false
 exclude_files = {".release/LibDeflate/LibStub", "tests/LibCompress"}
 
-stds.wow = {
-   read_globals = {"LibStub"}
-}
-std="max+wow"
+std="max"

@@ -82,14 +82,14 @@ do
 	.." License GPLv3+: GNU GPL version 3 or later"
 
 	-- Register in the World of Warcraft library "LibStub" if detected.
-	if LibStub then
+	if _G.LibStub then
 		local MAJOR, MINOR = "LibDeflate", -1
 		-- When MAJOR is changed, I should name it as LibDeflate2
-		local lib, minor = LibStub:GetLibrary(MAJOR, true)
+		local lib, minor = _G.LibStub:GetLibrary(MAJOR, true)
 		if lib and minor and minor >= MINOR then -- No need to update.
 			return lib
 		else -- Update or first time register
-			LibDeflate = LibStub:NewLibrary(MAJOR, _VERSION)
+			LibDeflate = _G.LibStub:NewLibrary(MAJOR, _VERSION)
 			-- NOTE: It is important that new version has implemented
 			-- all exported APIs and tables in the old version,
 			-- so the old library is fully garbage collected,
