@@ -36,7 +36,7 @@ if NO_EXTENDED_TESTS then
 	print("======= no extended tests (Not calling external program "
 	      .."and not checking memory leak "
 		  .."and not testing error messages"
-		  .."and not testing stdout/stderr of LibDeflate commandline)"
+		  .."and not testing LibDeflate commandline)"
 		  .."and code coverage tests are disabled =======")
 end
 
@@ -1358,6 +1358,7 @@ TestThirdPartySmall = {}
 		CheckCompressAndDecompressFile("tests/data/3rdparty/xyzzy", "all")
 	end
 
+if not LESS_BIG_TESTS then
 TestThirdPartyMedium = {}
 	function TestThirdPartyMedium:Test10x10y()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/10x10y", "all")
@@ -1420,6 +1421,7 @@ TestThirdPartyMedium = {}
 	function TestThirdPartyMedium:TestSum()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/sum", "all")
 	end
+end -- if not LESS_BIG_TESTS
 
 if not LESS_BIG_TESTS then
 Test_64K = {}
@@ -1945,7 +1947,9 @@ TestDecompress = {}
 			, nil)
 	end
 
+
 TestInternals = {}
+if not LESS_BIG_TESTS then
 	-- Test from puff
 	function TestInternals:TestLoadString()
 		local LoadStringToTable = LibDeflate.internals.LoadStringToTable
@@ -2014,6 +2018,7 @@ TestInternals = {}
 			end
 		end
 	end
+end -- if not LESS_BIG_TESTS
 
 	function TestInternals:TestAdler32()
 		lu.assertEquals(LibDeflate:Adler32(""), 1)
@@ -2525,8 +2530,8 @@ TestEncode = {}
 		lu.assertNil(err)
 	end
 
-TestCompressStrategy = {}
 if not LESS_BIG_TESTS then
+TestCompressStrategy = {}
 	function TestCompressStrategy:TestHtml_x_4Fixed()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/html_x_4"
 			, {0,1,3,4}, "fixed")
@@ -2539,7 +2544,6 @@ if not LESS_BIG_TESTS then
 		CheckCompressAndDecompressFile("tests/data/3rdparty/html_x_4"
 			, {0,1,2,3,4}, "dynamic")
 	end
-end -- if not LESS_BIG_TESTS
 	function TestCompressStrategy:TestAsyoulikFixed()
 		CheckCompressAndDecompressFile("tests/data/3rdparty/asyoulik.txt"
 			, {0,1,3,4}, "fixed")
@@ -2623,6 +2627,7 @@ end -- if not LESS_BIG_TESTS
 			LibDeflate:CompressZlib(str, {strategy = "dynamic"}):len()
 			, 542)
 	end
+end -- if not LESS_BIG_TESTS
 
 TestErrors = {}
 	local function TestCorruptedDictionary(msg_prefix, func, dict)
@@ -2936,103 +2941,102 @@ local function RunCommandline(args)
 	return returned_status, stdout, stderr
 end
 
+if not NO_EXTENDED_TESTS then
 TestCommandLine = {}
-	if not NO_EXTENDED_TESTS then
-		function TestCommandLine:TestHelp()
-			local returned_status, stdout, stderr = RunCommandline("-h")
-			lu.assertEquals(returned_status, 0)
+	function TestCommandLine:TestHelp()
+		local returned_status, stdout, stderr = RunCommandline("-h")
+		lu.assertEquals(returned_status, 0)
 
-			local str = LibDeflate._COPYRIGHT
-				.."\nUsage: lua LibDeflate.lua [OPTION] [INPUT] [OUTPUT]\n"
-				.."  -0    store only. no compression.\n"
-				.."  -1    fastest compression.\n"
-				.."  -9    slowest and best compression.\n"
-				.."  -d    do decompression instead of compression.\n"
-				.."  --dict <filename> specify the file that contains"
-				.." the entire preset dictionary.\n"
-				.."  -h    give this help.\n"
-				.."  --strategy <fixed/huffman_only/dynamic>"
-				.." specify a special compression strategy.\n"
-				.."  -v    print the version and copyright info.\n"
-				.."  --zlib  use zlib format instead of raw deflate.\n"
+		local str = LibDeflate._COPYRIGHT
+			.."\nUsage: lua LibDeflate.lua [OPTION] [INPUT] [OUTPUT]\n"
+			.."  -0    store only. no compression.\n"
+			.."  -1    fastest compression.\n"
+			.."  -9    slowest and best compression.\n"
+			.."  -d    do decompression instead of compression.\n"
+			.."  --dict <filename> specify the file that contains"
+			.." the entire preset dictionary.\n"
+			.."  -h    give this help.\n"
+			.."  --strategy <fixed/huffman_only/dynamic>"
+			.." specify a special compression strategy.\n"
+			.."  -v    print the version and copyright info.\n"
+			.."  --zlib  use zlib format instead of raw deflate.\n"
 
-			if stdout:find(str, 1, true) then
-				lu.assertStrContains(stdout, str)
-			else
-				str = str:gsub("\n", "\r\n")
-				lu.assertStrContains(stdout, str)
-			end
-			lu.assertEquals(stderr, "")
+		if stdout:find(str, 1, true) then
+			lu.assertStrContains(stdout, str)
+		else
+			str = str:gsub("\n", "\r\n")
+			lu.assertStrContains(stdout, str)
 		end
+		lu.assertEquals(stderr, "")
+	end
 
-		function TestCommandLine:TestCopyright()
-			local returned_status, stdout, stderr = RunCommandline("-v")
-			lu.assertEquals(returned_status, 0)
+	function TestCommandLine:TestCopyright()
+		local returned_status, stdout, stderr = RunCommandline("-v")
+		lu.assertEquals(returned_status, 0)
 
-			local str = LibDeflate._COPYRIGHT
+		local str = LibDeflate._COPYRIGHT
 
-			if stdout:find(str, 1, true) then
-				lu.assertStrContains(stdout, str)
-			else
-				str = str:gsub("\n", "\r\n")
-				lu.assertStrContains(stdout, str)
-			end
-			lu.assertEquals(stderr, "")
+		if stdout:find(str, 1, true) then
+			lu.assertStrContains(stdout, str)
+		else
+			str = str:gsub("\n", "\r\n")
+			lu.assertStrContains(stdout, str)
 		end
+		lu.assertEquals(stderr, "")
+	end
 
-		function TestCommandLine:TestErrors()
-			local returned_status, stdout, stderr
+	function TestCommandLine:TestErrors()
+		local returned_status, stdout, stderr
 
-			returned_status, stdout, stderr =
-				RunCommandline("-invalid")
-			lu.assertNotEquals(returned_status, 0)
-			lu.assertEquals(stdout, "")
-			lu.assertStrContains(stderr, ("LibDeflate: Invalid argument: %s")
-					:format("-invalid"))
+		returned_status, stdout, stderr =
+			RunCommandline("-invalid")
+		lu.assertNotEquals(returned_status, 0)
+		lu.assertEquals(stdout, "")
+		lu.assertStrContains(stderr, ("LibDeflate: Invalid argument: %s")
+				:format("-invalid"))
 
-			returned_status, stdout, stderr =
-				RunCommandline("tests/data/reference/item_strings.txt --dict")
-			lu.assertNotEquals(returned_status, 0)
-			lu.assertEquals(stdout, "")
-			lu.assertStrContains(stderr, "You must speicify the dict filename")
+		returned_status, stdout, stderr =
+			RunCommandline("tests/data/reference/item_strings.txt --dict")
+		lu.assertNotEquals(returned_status, 0)
+		lu.assertEquals(stdout, "")
+		lu.assertStrContains(stderr, "You must speicify the dict filename")
 
-			returned_status, stdout, stderr =
-				RunCommandline(
-					"tests/data/reference/item_strings.txt --dict DNE")
-			lu.assertNotEquals(returned_status, 0)
-			lu.assertEquals(stdout, "")
-			lu.assertStrContains(stderr,
-				("LibDeflate: Cannot read the dictionary file '%s':")
-				:format("DNE"))
+		returned_status, stdout, stderr =
+			RunCommandline(
+				"tests/data/reference/item_strings.txt --dict DNE")
+		lu.assertNotEquals(returned_status, 0)
+		lu.assertEquals(stdout, "")
+		lu.assertStrContains(stderr,
+			("LibDeflate: Cannot read the dictionary file '%s':")
+			:format("DNE"))
 
-			returned_status, stdout, stderr =
-				RunCommandline("DNE DNE")
-			lu.assertNotEquals(returned_status, 0)
-			lu.assertEquals(stdout, "")
-			lu.assertStrContains(stderr
-				, "LibDeflate: Cannot read the file 'DNE':")
+		returned_status, stdout, stderr =
+			RunCommandline("DNE DNE")
+		lu.assertNotEquals(returned_status, 0)
+		lu.assertEquals(stdout, "")
+		lu.assertStrContains(stderr
+			, "LibDeflate: Cannot read the file 'DNE':")
 
-			returned_status, stdout, stderr =
-				RunCommandline("tests/data/reference/item_strings.txt ..")
-			lu.assertNotEquals(returned_status, 0)
-			lu.assertEquals(stdout, "")
-			lu.assertStrContains(stderr
-				, "LibDeflate: Cannot write the file '..':")
+		returned_status, stdout, stderr =
+			RunCommandline("tests/data/reference/item_strings.txt ..")
+		lu.assertNotEquals(returned_status, 0)
+		lu.assertEquals(stdout, "")
+		lu.assertStrContains(stderr
+			, "LibDeflate: Cannot write the file '..':")
 
-			returned_status, stdout, stderr =
-				RunCommandline("tests/data/reference/item_strings.txt")
-			lu.assertNotEquals(returned_status, 0)
-			lu.assertEquals(stdout, "")
-			lu.assertStrContains(stderr, "LibDeflate:"
-				.." You must specify both input and output files.")
+		returned_status, stdout, stderr =
+			RunCommandline("tests/data/reference/item_strings.txt")
+		lu.assertNotEquals(returned_status, 0)
+		lu.assertEquals(stdout, "")
+		lu.assertStrContains(stderr, "LibDeflate:"
+			.." You must specify both input and output files.")
 
-			returned_status, stdout, stderr =
-				RunCommandline("-d tests/data/reference/item_strings.txt"
-							.." tests/test_commandline.tmp")
-			lu.assertNotEquals(returned_status, 0)
-			lu.assertEquals(stdout, "")
-			lu.assertStrContains(stderr, "LibDeflate: Decompress fails.")
-		end
+		returned_status, stdout, stderr =
+			RunCommandline("-d tests/data/reference/item_strings.txt"
+						.." tests/test_commandline.tmp")
+		lu.assertNotEquals(returned_status, 0)
+		lu.assertEquals(stdout, "")
+		lu.assertStrContains(stderr, "LibDeflate: Decompress fails.")
 	end
 
 	function TestCommandLine:TestCompressAndDecompress()
@@ -3107,7 +3111,9 @@ TestCommandLine = {}
 			end
 		end
 	end
+end -- if not NO_EXTENDED_TESTS
 
+if not LESS_BIG_TESTS then
 TestCompressRatio = {}
 	-- May need to modify number if algorithm changes.
 	function TestCompressRatio:TestSmallTest()
@@ -3135,6 +3141,7 @@ TestCompressRatio = {}
 		lu.assertTrue(LibDeflate:CompressDeflate(fileData, {level=9}):len()
 			<= 5820)
 	end
+end -- if not LESS_BIG_TESTS
 
 TestExported = {}
 	function TestExported:TestExported()
