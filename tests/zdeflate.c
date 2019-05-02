@@ -270,6 +270,7 @@ int main(int argc, char **argv)
                 fclose(file);
             } else {
                 fprintf(stderr, "Cant open dictionary file %s", filename);
+                free(dictionary);
                 return 255;
             }
         }

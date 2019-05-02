@@ -1,3 +1,4 @@
+#!/usr/bin/env false
 # Setup env vars which are determined at runtime.
 # Must source this script
 

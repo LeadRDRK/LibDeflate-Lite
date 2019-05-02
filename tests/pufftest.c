@@ -130,7 +130,7 @@ int main(int argc, char **argv)
         return 3;
     }
     if (skip >= len) {
-        fprintf(stderr, "skip request of %d leaves no input\n", skip);
+        fprintf(stderr, "skip request of %d leaves no input\n", (int)skip);
         free(source);
         return 3;
     }
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
     else {
         if (sourcelen < len) {
             // LibDeflate: output unprocessed bytes
-            fprintf(stderr, "%lu", len - sourcelen);
+            fprintf(stderr, "%lu", (unsigned long)(len - sourcelen));
         }
         //fprintf(stderr, "puff() succeeded uncompressing %lu bytes\n", destlen);
     }
