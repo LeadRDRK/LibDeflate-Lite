@@ -57,9 +57,9 @@ before_install:
   - bash .travis/install_luarocks_packages.sh
 
 script:
-  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then luacheck .; fi
-  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then bash tests/dev_scripts/release.sh; fi
-  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then cd docs && ldoc . && cd ..; fi
+  - if [[ -z "${NO_EXTENDED_TESTS}" ]]; then luacheck .; fi
+  - if [[ -z "${NO_EXTENDED_TESTS}" ]]; then bash tests/dev_scripts/release.sh; fi
+  - if [[ -z "${NO_EXTENDED_TESTS}" ]]; then cd docs && ldoc . && cd ..; fi
   - lua examples/example.lua
   - lua tests/Test.lua --verbose --shuffle ${NO_EXTENDED_TESTS:+--no-extended-tests} ${LESS_BIG_TESTS:+--less-big-tests}
   # converage test makes it too slow. so only run once in luajit linux
