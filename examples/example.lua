@@ -4,8 +4,8 @@
 
 local LibDeflate
 
-if LibStub then -- You are using LibDeflate as WoW addon
-	LibDeflate = LibStub:GetLibrary("LibDeflate")
+if _G.LibStub then -- You are using LibDeflate as WoW addon
+	LibDeflate = _G.LibStub:GetLibrary("LibDeflate")
 else
 	-- You are using LibDeflate as Lua library.
 	-- Setup the path to locate LibDeflate.lua,

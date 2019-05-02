@@ -974,6 +974,7 @@ end
 
 -- the input dictionary must can make compressed data smaller.
 -- otherwise, set dontCheckEffectivenss
+-- luacheck: no unused args
 local function CheckDictEffectiveness(str, dictionary, dict_str
 	, dontCheckEffectiveness)
 	local configs = {level = 7}
@@ -2863,7 +2864,7 @@ TestErrors = {}
 			, function()
 				LibDeflate:CreateCodec("", "", nil)
 			end)
-		local t, err = LibDeflate:CreateCodec("1", "2", "")
+		local _, err = LibDeflate:CreateCodec("1", "2", "")
 		lu.assertNil(err)
 	end
 	function TestErrors:TestEncodeDecode()
@@ -3207,7 +3208,7 @@ end
 -- for test coverage test and CommandLineCodeCoverage
 -- DONT run with "luajit -lluaconv"
 CommandLineCodeCoverage = {}
-	for k, v in pairs(TestCommandLine) do
+	for k, _ in pairs(TestCommandLine) do
 		CommandLineCodeCoverage[k] = function(_, ...)
 			lua_program = "lua -lluacov"
 			return TestCommandLine[k](TestCommandLine, ...)
