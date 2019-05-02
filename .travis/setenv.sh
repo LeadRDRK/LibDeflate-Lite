@@ -23,6 +23,7 @@ fi
 mkdir -p $HOME/install
 mkdir -p $HOME/.lua
 export PATH=${PATH}:$HOME/.lua:$HOME/.local/bin:${HOME}/install/luarocks/bin
+export PATH=:${TRAVIS_BUILD_DIR}/tests:${PATH}
 export LUA_SRC_DIR=$HOME/luasrc
 export LUA_HOME_DIR=$HOME/install/$LUA
 export LR_HOME_DIR=$HOME/install/luarocks
