@@ -7,7 +7,7 @@ env:
 
 matrix:
     include:
-    - env: LUA=luaj3.0.1 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
+    - env: LUA=luaj3.0.1 NO_EXTENDED_TESTS=1
       jdk: oraclejdk8
       os: linux
     - env: LUA=luaj2.0.3 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
@@ -32,7 +32,7 @@ matrix:
     - env: LUA=luajit2.0.4
       os: osx
     allow_failures:
-    - env: LUA=luaj3.0.1 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
+    - env: LUA=luaj3.0.1 NO_EXTENDED_TESTS=1
       jdk: oraclejdk8
       os: linux
     - env: LUA=luaj2.0.3 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
