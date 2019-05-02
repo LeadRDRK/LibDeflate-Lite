@@ -3214,6 +3214,7 @@ end
 -- Run "lua tests/Test.lua CommandLineCodeCoverage "
 -- for test coverage test and CommandLineCodeCoverage
 -- DONT run with "luajit -lluaconv"
+if not NO_EXTENDED_TESTS and not LESS_BIG_TESTS then
 CommandLineCodeCoverage = {}
 	for k, _ in pairs(TestCommandLine) do
 		CommandLineCodeCoverage[k] = function(_, ...)
@@ -3221,6 +3222,7 @@ CommandLineCodeCoverage = {}
 			return TestCommandLine[k](TestCommandLine, ...)
 		end
 	end
+end -- if not NO_EXTENDED_TESTS and not LESS_BIG_TESTS
 
 -- Check if decompress will produce any lua error for random string.
 -- Expectation is that no Lua error.
