@@ -24,5 +24,3 @@ ln -s -f $LUA_HOME_DIR/bin/ljx $HOME/.lua/lua
 
 hash -r
 lua -v
-
-cd $TRAVIS_BUILD_DIR

@@ -20,7 +20,14 @@ fi
 perl -i -pe 's/-DLUA_COMPAT_(ALL|5_2)//' src/Makefile
 
 echo ">> Compiling $LUA"
-make $PLATFORM
+if [[ "$(uname)" == "Linux" ]]; then
+	make linux
+elif [[ "$(uname)" == "Darwin" ]]; then
+	make macosx
+else
+	echo "unknown uname: $(uname)"
+fi
+
 make INSTALL_TOP="$LUA_HOME_DIR" install
 
 ln -s -f $LUA_HOME_DIR/bin/lua $HOME/.lua/lua

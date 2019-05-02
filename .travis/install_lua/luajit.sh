@@ -48,5 +48,3 @@ fi
 make build && make install
 
 ln -s -f $LR_HOME_DIR/bin/luarocks $HOME/.lua/luarocks
-
-cd $TRAVIS_BUILD_DIR
