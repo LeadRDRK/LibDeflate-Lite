@@ -1,37 +1,67 @@
 language: c
 sudo: false
 
-os:
-    - linux
-    - osx
-
 env:
   global:
     - LUAROCKS=2.2.2
-  matrix:
-    - LUA=lua5.1.4  LUANUMBER=double
-    - LUA=luajit     # latest stable version (2.0.x)
-    - LUA=lua5.2.4  LUANUMBER=double
-    - LUA=lua5.3.3  LUANUMBER=double
-    - LUA=luajit2.1  # current head of 2.1 branch
 
 matrix:
-  # 'bleeding edge' LuaJIT may fail without breaking the build
-  allow_failures:
-    - env: LUA=luajit2.0
-    - env: LUA=luajit2.1
+    include:
+    - env: LUA=luaj3.0.1 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
+      jdk: oraclejdk8
+      os: linux
+    - env: LUA=luaj2.0.3 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
+      jdk: oraclejdk8
+      os: linux
+    - env: LUA=ljx1.3 NO_EXTENDED_TESTS=1
+      os: linux
+    - env: LUA=lua5.1.4
+      os: linux
+    - env: LUA=lua5.2.4
+      os: linux
+    - env: LUA=lua5.3.3
+      os: linux
+    - env: LUA=luajit2.0.4
+      os: linux
+    - env: LUA=luajit2.1.0-beta3
+      os: linux
+    - env: LUA=lua5.1.4
+      os: mac
+    - env: LUA=lua5.2.4
+      os: mac
+    - env: LUA=lua5.3.3
+      os: mac
+    - env: LUA=luajit2.0.4
+      os: mac
+    - env: LUA=luajit2.1.0-beta3
+      os: mac
+    allow_failures:
+    - env: LUA=luaj3.0.1 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
+      jdk: oraclejdk8
+      os: linux
+    - env: LUA=luaj2.0.3 NO_EXTENDED_TESTS=1 LESS_BIG_TESTS=1
+      jdk: oraclejdk8
+      os: linux
+    - env: LUA=ljx1.3 NO_EXTENDED_TESTS=1
+      os: linux
+    - env: LUA=luajit2.1.0-beta3
+      os: linux
+    - env: LUA=luajit2.1.0-beta3
+      os: mac
 
 before_install:
-  - source .travis/setenv_lua.sh
-  - source .travis/setup_compressor_decompressor.sh
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y libxml2-utils; fi
+  - source .travis/setenv.sh
+  - bash .travis/install_lua.sh
+  - bash .travis/install_compressor_decompressor.sh
+  - bash .travis/install_luarocks_packages.sh
 
 script:
-  - luacheck -g -u .
-  - bash tests/dev_scripts/release.sh
-  - cd docs && ldoc . && cd ..
+  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then luacheck -g -u .; fi
+  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then bash tests/dev_scripts/release.sh; fi
+  - if [[ -z "${NO_EXTENDED_TESTS} ]]; then cd docs && ldoc . && cd ..; fi
   - lua examples/example.lua
-  - lua tests/Test.lua --verbose --shuffle
+  - lua tests/Test.lua --verbose --shuffle ${NO_EXTENDED_TESTS:+--no-extended-tests} ${LESS_BIG_TESTS:+--less-big-tests}
   # converage test makes it too slow. so only run once in luajit linux
   # Don't shuffle coverage test so we see progress
   - if [[ "$LUA" == "luajit" && "$TRAVIS_OS_NAME" == "linux" ]]; then lua tests/Test.lua CommandLineCodeCoverage --verbose; fi
