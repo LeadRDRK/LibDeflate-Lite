@@ -195,6 +195,22 @@ do
 	end
 end
 
+local function SimpleXor32(a, b)
+	local ret = 0
+	local fact = 2147483648
+	while fact > a and fact > b do
+		fact = fact / 2
+	end
+	while fact >= 1 do
+        ret = ret + (((a >= fact or b >= fact)
+			and (a < fact or b < fact)) and fact or 0)
+        a = a - ((a >= fact) and fact or 0)
+        b = b - ((b >= fact) and fact or 0)
+	    fact = fact/2
+	end
+	return ret
+end
+
 local function StringToHex(str)
 	if not str then
 		return "nil"
@@ -2088,42 +2104,107 @@ end -- if not LESS_BIG_TESTS
 		lu.assertEquals(LibDeflate:Adler32(adler32Test2), 0xD6A07E29)
     end
 
-    function TestInternals:TestCRC32()
-		lu.assertEquals(LibDeflate:CRC32(""), 0)
-		lu.assertEquals(LibDeflate:CRC32("1"), 0x83DCEFB7)
-		lu.assertEquals(LibDeflate:CRC32("12"), 0x4F5344CD)
-		lu.assertEquals(LibDeflate:CRC32("123"), 0x884863D2)
-		lu.assertEquals(LibDeflate:CRC32("1234"), 0x9BE3E0A3)
-		lu.assertEquals(LibDeflate:CRC32("12345"), 0xCBF53A1C)
-		lu.assertEquals(LibDeflate:CRC32("123456"), 0x0972D361)
-		lu.assertEquals(LibDeflate:CRC32("1234567"), 0x5003699F)
-		lu.assertEquals(LibDeflate:CRC32("12345678"), 0x9AE0DAAF)
-		lu.assertEquals(LibDeflate:CRC32("123456789"), 0xCBF43926)
-		lu.assertEquals(LibDeflate:CRC32("1234567890"), 0x261DAEE5)
-		lu.assertEquals(LibDeflate:CRC32("1234567890a"), 0x38F1B51A)
-		lu.assertEquals(LibDeflate:CRC32("1234567890ab"), 0x8CE4E736)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abc"), 0xC98FAE11)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcd"), 0xF2A4E590)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcde"), 0x1F274DFB)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdef"), 0x5CA32739)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefg"), 0x5E8D3059)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefgh"), 0x83826287)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghi"), 0x9533A290)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghij"), 0x8FFFC72D)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghijk"), 0x4D32F4EF)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghijkl")
+	function TestInternals:TestCrcTable()
+		local _crc_table0 = {}
+		local _crc_table1 = {}
+		local _crc_table2 = {}
+		local _crc_table3 = {}
+
+		for n = 0, 255 do
+			local c = n
+			for k = 0, 7 do
+				local m = c % 2
+				local d = (c-m)/2
+				if m > 0 then
+					c = SimpleXor32(0xedb88320, d)
+				else
+					c = d
+				end
+			end
+
+			local c0, c1, c2, c3
+			c0 = c % 256
+			c = (c - c0) / 256
+			c1 = c % 256
+			c = (c - c1) / 256
+			c2 = c % 256
+			c = (c - c2) / 256
+			c3 = c % 256
+			_crc_table0[n] = c0
+			_crc_table1[n] = c1
+			_crc_table2[n] = c2
+			_crc_table3[n] = c3
+		end
+
+		for i=0, 255 do
+			lu.assertEquals(_crc_table0[i], LibDeflate.internals._crc_table0[i])
+			lu.assertEquals(_crc_table1[i], LibDeflate.internals._crc_table1[i])
+			lu.assertEquals(_crc_table2[i], LibDeflate.internals._crc_table2[i])
+			lu.assertEquals(_crc_table3[i], LibDeflate.internals._crc_table3[i])
+		end
+	end
+    function TestInternals:TestCrc32()
+		lu.assertEquals(LibDeflate:Crc32(""), 0)
+		lu.assertEquals(LibDeflate:Crc32("1"), 0x83DCEFB7)
+		lu.assertEquals(LibDeflate:Crc32("12"), 0x4F5344CD)
+		lu.assertEquals(LibDeflate:Crc32("123"), 0x884863D2)
+		lu.assertEquals(LibDeflate:Crc32("1234"), 0x9BE3E0A3)
+		lu.assertEquals(LibDeflate:Crc32("12345"), 0xCBF53A1C)
+		lu.assertEquals(LibDeflate:Crc32("123456"), 0x0972D361)
+		lu.assertEquals(LibDeflate:Crc32("1234567"), 0x5003699F)
+		lu.assertEquals(LibDeflate:Crc32("12345678"), 0x9AE0DAAF)
+		lu.assertEquals(LibDeflate:Crc32("123456789"), 0xCBF43926)
+		lu.assertEquals(LibDeflate:Crc32("1234567890"), 0x261DAEE5)
+		lu.assertEquals(LibDeflate:Crc32("1234567890a"), 0x38F1B51A)
+		lu.assertEquals(LibDeflate:Crc32("1234567890ab"), 0x8CE4E736)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abc"), 0xC98FAE11)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcd"), 0xF2A4E590)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcde"), 0x1F274DFB)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdef"), 0x5CA32739)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefg"), 0x5E8D3059)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefgh"), 0x83826287)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghi"), 0x9533A290)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghij"), 0x8FFFC72D)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijk"), 0x4D32F4EF)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijkl")
 			, 0xA6FE0FE3)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghijklm")
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklm")
 			, 0xD8A4BFA5)
-		lu.assertEquals(LibDeflate:CRC32("1234567890abcdefghijklmn")
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmn")
 			, 0xDE6C500A)
-		lu.assertEquals(LibDeflate:CRC32(
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmno")
+			, 0xEF04160A)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnop")
+			, 0x623D73B9)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopq")
+			, 0x47DF987C)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqr")
+			, 0x35FD1D12)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqr")
+			, 0x35FD1D12)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrs")
+			, 0xE882435E)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrst")
+			, 0x951A418)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstu")
+			, 0xE108A3CC)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuv")
+			, 0xF957BDBC)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuvw")
+			, 0xDE4DA308)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuvwx")
+			, 0x82D9D312)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuvwxy")
+			, 0x8E08E8E)
+		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuvwxyz")
+			, 0x68DA3906)
+		lu.assertEquals(LibDeflate:Crc32(
 			"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 			, 0xED3E1945)
 		local adler32Test = GetFileData("tests/data/adler32Test.txt")
-		lu.assertEquals(LibDeflate:CRC32(adler32Test), 0x6E99FB92)
+		lu.assertEquals(LibDeflate:Crc32(adler32Test), 0x6E99FB92)
 		local adler32Test2 = GetFileData("tests/data/adler32Test2.txt")
-		lu.assertEquals(LibDeflate:CRC32(adler32Test2), 0x01294F1F)
+		lu.assertEquals(LibDeflate:Crc32(adler32Test2), 0x01294F1F)
 	end
 
 	function TestInternals:TestLibStub()
@@ -3230,7 +3311,7 @@ TestExported = {}
 			internals = "table",
 			_VERSION = "string",
 			Adler32 = "function",
-			CRC32 = "function",
+			Crc32 = "function",
 			CreateDictionary = "function",
 			CompressZlibWithDict = "function",
 			EncodeForPrint = "function",
