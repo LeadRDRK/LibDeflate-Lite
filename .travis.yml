@@ -45,6 +45,11 @@ before_install:
 
 script:
   - hash -r
+  # Check if non ASCII character exists in Lua files
+  - non_ascii=; for f in $(find . -name '*.lua'); do
+    if [[ "$(cat $f)" = *[![:ascii:]]* ]]; then non_ascii=$f; break; fi; done;
+    if [[ -n "$non_ascii" ]];
+    then echo "Non ASCII character find in Lua file $non_ascii"; false; fi
   - if [[ -z "${NO_EXTENDED_TESTS}" ]]; then luacheck .; fi
   - if [[ -z "${NO_EXTENDED_TESTS}" ]]; then bash tests/dev_scripts/release.sh; fi
   - if [[ -z "${NO_EXTENDED_TESTS}" ]]; then cd docs && ldoc . && cd ..; fi

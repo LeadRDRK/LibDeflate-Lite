@@ -405,9 +405,10 @@ local function MemCheckAndBenchmarkFunc(lib, func_name, ...)
 		, elapsed_time*1000/repeat_count, unpack(ret)
 end
 
-local function GetFirstBlockType(compressed_data, isZlib)
+-- compression_type: 0==deflate, 1==zlib, 2==gzip
+local function GetFirstBlockType(compressed_data, compression_type)
 	local first_block_byte_index = 1
-	if isZlib == 1 then
+	if compression_type == 1 then
 		local byte2 = string.byte(compressed_data, 2, 2)
 		local has_dict = ((byte2-byte2%32)/32)%2
 		if has_dict == 1 then
@@ -415,7 +416,7 @@ local function GetFirstBlockType(compressed_data, isZlib)
 		else
 			first_block_byte_index = 3
         end
-    elseif isZlib == 2 then
+    elseif compression_type == 2 then
         local band = function(a, b)
             local p,c=1,0
             while a>0 and b>0 do
@@ -574,15 +575,15 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 				-- to see if decompression still works.
 				compress_data = PutRandomBitsInPaddingBits(compress_data
 					, compress_pad_bitlen)
-                local isZlib = 0
-                if compress_func_name:find("Zlib") then isZlib = 1
-                elseif compress_func_name:find("Gzip") then isZlib = 2 end
+                local compression_type = 0
+                if compress_func_name:find("Zlib") then compression_type = 1
+                elseif compress_func_name:find("Gzip") then compression_type = 2 end
 				if strategy == "fixed" then
-					lu.assertEquals(GetFirstBlockType(compress_data, isZlib)
+					lu.assertEquals(GetFirstBlockType(compress_data, compression_type)
 					, (level == 0) and 0 or 1,
 					compress_func_name.." "..tostring(level))
 				elseif strategy == "dynamic" then
-					lu.assertEquals(GetFirstBlockType(compress_data, isZlib)
+					lu.assertEquals(GetFirstBlockType(compress_data, compression_type)
 					, (level == 0) and 0 or 2,
 					compress_func_name.." "..tostring(level))
 				elseif strategy == "huffman_only" then  -- luacheck: ignore
@@ -3222,6 +3223,8 @@ TestExported = {}
 			DecompressZlibWithDict = "function",
 			CompressGzip = "function",
 			DecompressGzip = "function",
+			GetGzipInfo = "function",
+			ERRORS = "table",
 			CreateCodec = "function",
 			DecodeForWoWChatChannel = "function",
 			internals = "table",

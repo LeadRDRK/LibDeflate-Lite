@@ -734,6 +734,19 @@ local _compression_level_configs = {
 		-- (VERY SLOW) level 9, similar to zlib level 9
 }
 
+local ERRORS = {
+	["EOF"] = -1, -- End of file reached while processing
+	["INVALID_MAGIC"] = -2, -- Invalid Magic header for zlib/gzip
+	["INVALID_HEADER_FLAG"] = -3, -- Invalid header flag for zlib/gzip
+	["UNMATCHED_HEADER_CHECKSUM"] = -4, -- Invalid header checksum for zlib/gzip
+	-- Invalid data checksum for zlib/gzip (Adler32 for zlib, crc32 for gzip)
+	["UNMATCHED_DATA_CHECKSUM"] = -5,
+	["UNMATCHED_DATA_SIZE"] = -6, -- Invalid data size for gzip(ISIZE)
+	["UNKNOWN_COMPRESSION_METHOD"] = -7, -- Compression method unknown for zlib/gzip
+}
+LibDeflate.ERRORS = ERRORS
+
+
 -- Check if the compression/decompression arguments is valid
 -- @param str The input string.
 -- @param check_dictionary if true, check if dictionary is valid.
@@ -761,11 +774,13 @@ local function IsValidArguments(str,
 		if type_configs ~= "nil" and type_configs ~= "table" then
 			return false,
 			("'configs' - nil or table expected got '%s'.")
-				:format(type(configs))
+				:format(type_configs)
 		end
 		if type_configs == "table" then
 			for k, v in pairs(configs) do
-				if k ~= "level" and k ~= "strategy" then
+				if k ~= "level" and k ~= "strategy"
+						and k ~= "gzip_filename" and k ~= "gzip_comment"
+						and k ~= "gzip_file_mtime" and k ~= "gzip_os" then
 					return false,
 					("'configs' - unsupported table key in the configs: '%s'.")
 					:format(k)
@@ -777,6 +792,38 @@ local function IsValidArguments(str,
 						-- random_block_type is for testing purpose
 					return false, ("'configs' - unsupported 'strategy': '%s'.")
 						:format(tostring(v))
+				elseif k == "gzip_filename" or k == "gzip_comment" then
+					if type(v) ~= "string" then
+						return false, ("'configs' - '%s': %s expected got '%s'.")
+							:format(k, "string", type(v))
+					end
+					for i=1, #v do
+						if string_byte(v, i) == 0 then
+							return false, ("'configs' - unsupported '%s':"
+										  .." NULL character is not allowed.")
+								:format(k)
+						end
+					end
+				elseif k == "gzip_file_mtime" then
+					if type(v) ~= "number" then
+						return false, ("'configs' - unsupported '%s': %s expected got '%s'.")
+							:format(k, "number", type(v))
+					end
+					if v % 1 ~= 0 or v < 0 or v >= 4294967296 then
+						return false, ("'configs' - unsupported '%s':"
+									   .." 32bit non-negative integer expected got '%s'.")
+							:format(k, tostring(v))
+					end
+				elseif k == "gzip_os" then
+					if type(v) ~= "number" then
+						return false, ("'configs' - unsupported '%s': %s expected got '%s'.")
+							:format(k, "number", type(v))
+					end
+					if v % 1 ~= 0 or v < 0 or v >= 256 then
+						return false, ("'configs' - unsupported '%s':"
+									   .." 8bit non-negative integer expected got '%s'.")
+							:format(k, tostring(v))
+					end
 				end
 			end
 		end
@@ -816,6 +863,10 @@ local function CreateWriter()
 	local result_buffer = {}
 
 	-- Write bits with value "value" and bit length of "bitlen" into writer.
+	-- The maximum allowed value of "bitlen" is 16,
+	-- otherwise integer overflow is possible.
+	-- Double floating point only have 53 bit integer precision,
+	-- while we can contain the maximum of 31 bits in cache already.
 	-- @param value: The value being written
 	-- @param bitlen: The bit length of "value"
 	-- @return nil
@@ -2089,7 +2140,7 @@ local function CompressZlibInternal(str, dictionary, configs)
 	FLG = FLG + FCHECK
 	WriteBits(FLG, 8)
 
-	if FDIST == 1 then
+	if FDIST == 1 then -- Zlib is most significant byte first.
 		local adler32 = dictionary.adler32
 		local byte0 = adler32 % 256
 		adler32 = (adler32 - byte0) / 256
@@ -2124,6 +2175,7 @@ local function CompressZlibInternal(str, dictionary, configs)
 	WriteBits(byte3, 8)
 	local total_bitlen, result = FlushWriter(_FLUSH_MODE_OUTPUT)
 	local padding_bitlen = (8-total_bitlen%8)%8
+	assert(padding_bitlen == 0)
 	return result, padding_bitlen
 end
 
@@ -2219,14 +2271,6 @@ function LibDeflate:CompressZlibWithDict(str, dictionary, configs)
 	return CompressZlibInternal(str, dictionary, configs)
 end
 
-local function time()
-	if os == nil then return 0
-	elseif os.epoch ~= nil then return (os.epoch("utc") / 1000)-(os.epoch("utc") / 1000)%1
-		-- ComputerCraft's os.time() gives in-game time, os.epoch gives POSIX time in ms
-	elseif os.time() < 30 then return 0 -- ComputerCraft 1.79 and below don't have os.epoch(), so no time.
-	else return os.time() end -- All other Luas.
-end
-
 local function byte(num, b) return ((num / _pow2[b*8])-(num / _pow2[b*8])%1) % 0x100 end
 
 --- Compress using the gzip format.
@@ -2234,6 +2278,9 @@ local function byte(num, b) return ((num / _pow2[b*8])-(num / _pow2[b*8])%1) % 0
 -- @param configs [table/nil] The configuration table to control the compression
 -- . If nil, use the default configuration.
 -- @return [string] The compressed data with gzip headers.
+-- @return [integer] The number of bits padded at the end of output.
+-- Should always be 0.
+-- Gzip formatted compressed data never has padding bits at the end.
 -- @see compression_configs
 -- @see LibDeflate:DecompressGzip
 function LibDeflate:CompressGzip(str, configs)
@@ -2242,19 +2289,98 @@ function LibDeflate:CompressGzip(str, configs)
 		error(("Usage: LibDeflate:CompressGzip(str, configs): "
 			..arg_err), 2)
 	end
-	local res, err = CompressDeflateInternal(str, nil, configs)
-	if res == nil then return res, err end
-	local t = time()
-	local cf = 0
-	local crc = self:CRC32(str)
-	local len = string.len(str)
-	if configs ~= nil and configs.level ~= nil then
-		if configs.level == 0 then cf = 0x04
-		elseif configs.level == 9 then cf = 0x02 end
+
+	local WriteBits, WriteString, FlushWriter = CreateWriter()
+
+	local ID1 = 31  -- IDentification 1
+	local ID2 = 139 -- IDentification 2
+	local CM = 8    -- Compression method: DEFLATE
+
+	WriteBits(ID1, 8)
+	WriteBits(ID2, 8)
+	WriteBits(CM, 8)
+
+	local FHCRC = 2 -- indicate CRC16 for gzip header is present
+	local FNAME = 8 -- indicate filename is present in header
+	local FCOMMENT = 16 -- indicate comment is present in header
+
+	local FLG = FHCRC   -- FLaGs
+
+	if configs and configs.gzip_filename then
+		FLG = FLG + FNAME
 	end
-	return string_char(0x1f, 0x8b, 8, 0, byte(t, 0), byte(t, 1), byte(t, 2),
-		byte(t, 3), cf, 0xFF) .. res .. string_char(byte(crc, 0), byte(crc, 1),
-		byte(crc, 2), byte(crc, 3), byte(len, 0), byte(len, 1), byte(len, 2), byte(len, 3)), 0
+
+	if configs and configs.gzip_comment then
+		FLG = FLG + FCOMMENT
+	end
+	WriteBits(FLG, 8)
+
+	local MTIME -- unix epoch of file modification time
+	if configs and configs.gzip_file_mtime then
+		MTIME = configs.gzip_file_mtime
+	elseif type(_G.os) == "table" and type(_G.os.time) == "function" then
+		MTIME = _G.os.time() % 4294967296  -- Avoid the year 2038 problem
+		-- os.time() should return integer, just in case some implementation returns float
+		MTIME = MTIME - (MTIME % 1)
+	else
+		MTIME = 0
+	end
+	WriteBits(MTIME % 65536, 16)
+	WriteBits((MTIME - MTIME % 65536)/65536, 16)
+
+	local XFL = 0  -- eXtra FLags, for use by specific compression methods.
+	if configs and configs.level then
+		if configs.level <= 1 then
+			XFL = 4 -- compressor used fastest algorithm
+		elseif configs.level == 9 then
+			XFL = 2
+		end
+	end
+	WriteBits(XFL, 8)
+
+	local OS = 255 -- Oprating system, 255 means unknown
+	if configs and configs.gzip_os then
+		OS = configs.gzip_os
+	end
+	WriteBits(OS, 8)
+
+	if configs and configs.gzip_filename then
+		WriteString(configs.gzip_filename)
+		WriteBits(0, 8) -- Null terminated
+	end
+
+	if configs and configs.gzip_comment then
+		WriteString(configs.gzip_comment)
+		WriteBits(0, 8) -- Null terminated
+	end
+
+	local header_bitlen, header = FlushWriter(_FLUSH_MODE_OUTPUT)
+	assert (header_bitlen % 8 == 0)
+
+	local header_crc32 = self:CRC32(header)
+	assert(header_crc32 >= 0 and header_crc32 < 4294967296)
+	local CRC16 = header_crc32 % 65536  -- CRC16 checksum of gzip header
+	WriteBits(CRC16, 16)
+
+	Deflate(configs, WriteBits, WriteString, FlushWriter, str, nil)
+
+	FlushWriter(_FLUSH_MODE_BYTE_BOUNDARY)
+	local CRC32 = self:CRC32(str) -- The crc32 checksum
+	assert(CRC32 >= 0 and CRC32 < 4294967296)
+	-- Currently WriteBits() only support write only to 16 bits at one time
+	WriteBits(CRC32 % 65536, 16)
+	WriteBits((CRC32 - CRC32 % 65536) / 65536, 16)
+
+	local ISIZE = (#str) % 4294967296 -- The size of the original (uncompressed) input data
+
+	-- Currently WriteBits() only support write only to 16 bits at one time
+	WriteBits(ISIZE % 65536, 16)
+	WriteBits((ISIZE - ISIZE % 65536) / 65536, 16)
+
+	local total_bitlen, result = FlushWriter(_FLUSH_MODE_OUTPUT)
+	local padding_bitlen = (8-total_bitlen%8)%8
+	assert(padding_bitlen == 0)
+	return result, padding_bitlen
 end
 
 --[[ --------------------------------------------------------------------------
@@ -2265,7 +2391,7 @@ end
 	Create a reader to easily reader stuffs as the unit of bits.
 	Return values:
 	1. ReadBits(bitlen)
-	2. ReadBytes(bytelen, buffer, buffer_size)
+	2. ReadBytesOneByOne(bytelen, buffer, buffer_size)
 	3. Decode(huffman_bitlen_count, huffman_symbol, min_bitlen)
 	4. ReaderBitlenLeft()
 	5. SkipToByteBoundary()
@@ -2306,13 +2432,14 @@ local function CreateReader(input_string)
 	end
 
 	-- Read some bytes from the reader.
+	-- Store each byte one by one into the buffer, as string
 	-- Assume reader is on the byte boundary.
 	-- @param bytelen The number of bytes to be read.
 	-- @param buffer The byte read will be stored into this buffer.
 	-- @param buffer_size The buffer will be modified starting from
 	--	buffer[buffer_size+1], ending at buffer[buffer_size+bytelen-1]
 	-- @return the new buffer_size
-	local function ReadBytes(bytelen, buffer, buffer_size)
+	local function ReadBytesOneByOne(bytelen, buffer, buffer_size)
 		assert(cache_bitlen % 8 == 0)
 
 		local byte_from_cache = (cache_bitlen/8 < bytelen)
@@ -2327,6 +2454,7 @@ local function CreateReader(input_string)
 		bytelen = bytelen - byte_from_cache
 		if (input_strlen - input_next_byte_pos - bytelen + 1) * 8
 			+ cache_bitlen < 0 then
+			input_next_byte_pos = input_next_byte_pos + bytelen
 			return -1 -- out of input
 		end
 		for i=input_next_byte_pos, input_next_byte_pos+bytelen-1 do
@@ -2416,7 +2544,45 @@ local function CreateReader(input_string)
 		cache = (cache - cache % rshift_mask) / rshift_mask
 	end
 
-	return ReadBits, ReadBytes, Decode, ReaderBitlenLeft, SkipToByteBoundary
+	-- Read fixed length string from the reader.
+	-- Assume the reader is on the byte boundary
+	-- Error is not checked here. Should be checked by ReaderBitlenLeft() < 0
+	-- @return the string read
+	local function ReadString(bytelen)
+		assert(cache_bitlen % 8 == 0)
+		input_next_byte_pos = input_next_byte_pos - (cache_bitlen / 8)
+		cache_bitlen = 0
+		cache = 0
+		local end_pos = input_next_byte_pos + bytelen - 1
+		local str = string_sub(input_string, input_next_byte_pos, end_pos)
+		input_next_byte_pos = end_pos + 1
+		return str
+	end
+
+	-- Read null terminated string without null
+	-- error is not checked. Should be checked by ReaderBitlenLeft() < 0
+	-- @return the string read
+	local function ReadNullTerminatedStringWithoutNull()
+		assert(cache_bitlen % 8 == 0)
+		input_next_byte_pos = input_next_byte_pos - (cache_bitlen / 8)
+		cache_bitlen = 0
+		cache = 0
+		local end_pos = input_next_byte_pos
+		while true do
+			local byte = string_byte(end_pos)
+			if (byte == 0) or (not byte) then
+				break
+			end
+			end_pos = end_pos + 1
+		end
+		-- Null is not included
+		local str = string_sub(input_string, input_next_byte_pos, end_pos - 1)
+		input_next_byte_pos = end_pos + 1
+		return str
+	end
+
+	return ReadBits, ReadBytesOneByOne, Decode, ReaderBitlenLeft, SkipToByteBoundary
+		   , ReadString, ReadNullTerminatedStringWithoutNull
 end
 
 -- Create a deflate state, so I can pass in less arguments to functions.
@@ -2425,12 +2591,13 @@ end
 --		This dictionary should be produced by LibDeflate:CreateDictionary(str)
 -- @return The decomrpess state.
 local function CreateDecompressState(str, dictionary)
-	local ReadBits, ReadBytes, Decode, ReaderBitlenLeft
-		, SkipToByteBoundary = CreateReader(str)
+	local ReadBits, ReadBytesOneByOne, Decode, ReaderBitlenLeft
+		, SkipToByteBoundary, ReadString
+		, ReadNullTerminatedStringWithoutNull = CreateReader(str)
 	local state =
 	{
 		ReadBits = ReadBits,
-		ReadBytes = ReadBytes,
+		ReadBytesOneByOne = ReadBytesOneByOne,
 		Decode = Decode,
 		ReaderBitlenLeft = ReaderBitlenLeft,
 		SkipToByteBoundary = SkipToByteBoundary,
@@ -2438,6 +2605,8 @@ local function CreateDecompressState(str, dictionary)
 		buffer = {},
 		result_buffer = {},
 		dictionary = dictionary,
+		ReadString = ReadString,
+		ReadNullTerminatedStringWithoutNull = ReadNullTerminatedStringWithoutNull
 	}
 	return state
 end
@@ -2601,9 +2770,9 @@ end
 -- @param state decompression state that will be modified by this function.
 -- @return 0 if succeeds, other value if fails.
 local function DecompressStoreBlock(state)
-	local buffer, buffer_size, ReadBits, ReadBytes, ReaderBitlenLeft
+	local buffer, buffer_size, ReadBits, ReadBytesOneByOne, ReaderBitlenLeft
 		, SkipToByteBoundary, result_buffer =
-		state.buffer, state.buffer_size, state.ReadBits, state.ReadBytes
+		state.buffer, state.buffer_size, state.ReadBits, state.ReadBytesOneByOne
 		, state.ReaderBitlenLeft, state.SkipToByteBoundary, state.result_buffer
 
 	SkipToByteBoundary()
@@ -2624,9 +2793,10 @@ local function DecompressStoreBlock(state)
 		return -2 -- Not one's complement
 	end
 
-	-- Note that ReadBytes will skip to the next byte boundary first.
-	buffer_size = ReadBytes(bytelen, buffer, buffer_size)
+	-- Note that ReadBytesOneByOne will skip to the next byte boundary first.
+	buffer_size = ReadBytesOneByOne(bytelen, buffer, buffer_size)
 	if buffer_size < 0 then
+		assert(ReaderBitlenLeft() < 0)
 		return 2 -- available inflate data did not terminate
 	end
 
@@ -3025,52 +3195,141 @@ do
 		, _fix_block_dist_huffman_bitlen, 31, 5)
 end
 
--- Returns a table with info about the gzip
-local function GetGzipInfo(str)
+-- @see LibDeflate:GetGzipInfo
+-- One extra internal variable is returned for the state of decompression.
+local function GetGzipInfoInternal(str)
+	assert(type(str) == "string")
+
+	local strlen = #str
+	local state = CreateDecompressState(str, nil)
+	local ReadBits = state.ReadBits
+	local ReaderBitlenLeft = state.ReaderBitlenLeft
+	local ReadString = state.ReadString
+	local ReadNullTerminatedStringWithoutNull = state.ReadNullTerminatedStringWithoutNull
+	local info = {}
+	info.compression_method = "deflate"
+	info.footer_size = 8
+
+	local ID1 = ReadBits(8)
+	if ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+	if ID1 ~= 31 then
+		return nil, ERRORS.INVALID_MAGIC
+	end
+	local ID2 = ReadBits(8)
+	if ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+	if ID2 ~= 139 then
+		return nil, ERRORS.INVALID_MAGIC
+	end
+	local CM = ReadBits(8)
+	if ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+	if CM ~= 8 then
+		return nil, ERRORS.UNKNOWN_COMPRESSION_METHOD
+	end
+	info.compression_method = "deflate"
+
+	ReadBits(1) -- FTEXT, ignored
+	local FHCRC = ReadBits(1)
+	local FEXTRA = ReadBits(1)
+	local FNAME = ReadBits(1)
+	local FCOMMENT = ReadBits(1)
+	local FRESERVED = ReadBits(3)
+
+	if ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+	if FRESERVED ~= 0 then
+		return nil, ERRORS.INVALID_HEADER_FLAG
+	end
+	-- ReadBits support only to 16bits at a time
+	local MTIME = ReadBits(16) + ReadBits(16) * 65536
+	info.file_mtime = MTIME
+	if ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+
+	ReadBits(8)  -- XFL (extra flag), ignored
+	if ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+	local OS = ReadBits(8)
+	if ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+	info.os = OS
+
+	local header_size = 10
+	if FEXTRA > 0 then
+		local XLEN = ReadBits(16)
+		if ReaderBitlenLeft() < 0 then
+			return nil, ERRORS.EOF
+		end
+		ReadString(XLEN) -- ignored
+		if ReaderBitlenLeft() < 0 then
+			return nil, ERRORS.EOF
+		end
+		header_size = header_size + 2 + XLEN
+	end
+
+	if FNAME > 0 then
+		local filename = ReadNullTerminatedStringWithoutNull()
+		if ReaderBitlenLeft() < 0 then
+			return nil, ERRORS.EOF
+		end
+		header_size = header_size + #filename
+		info.filename = filename
+	end
+
+	if FCOMMENT > 0 then
+		local comment = ReadNullTerminatedStringWithoutNull()
+		if ReaderBitlenLeft() < 0 then
+			return nil, ERRORS.EOF
+		end
+		header_size = header_size + #comment
+		info.comment = comment
+	end
+
+	if FHCRC > 0 then
+		local header_crc32 = LibDeflate:CRC32(string_sub(str, 1, header_size))
+		local header_crc16 = header_crc32 % 65536
+		local actual_header_crc16 = ReadBits(16)
+		if ReaderBitlenLeft() < 0 then
+			return nil, ERRORS.EOF
+		end
+		if header_crc16 ~= actual_header_crc16 then
+			return nil, ERRORS.UNMATCHED_HEADER_CHECKSUM
+		end
+		header_size = header_size + 2
+	end
+	info.header_size = header_size
+	if strlen < header_size + 8 then
+		return nil, ERRORS.EOF
+	end
+	info.crc32 = 16777216 * string_byte(str, -5) + string_byte(str, -6) * 65536
+	           + string_byte(str, -7) * 256 + string_byte(str, -8)
+	info.uncompressed_size = 16777216 * string_byte(str, -1) + string_byte(str, -2) * 65536
+	           + string_byte(str, -3) * 256 + string_byte(str, -4)
+	return info, 0, state
+end
+
+-- Returns a table with information about the gzip.
+-- No actual decompression is performed.
+-- Some error checkings are performed, but the checksum of compressed data is not checked.
+-- @return [table/nil] The table containing the Gzip info. nil if input is not invalid gzip data.
+-- @return [integer] 0 if success. The error code on failure.
+function LibDeflate:GetGzipInfo(str)
 	local arg_valid, arg_err = IsValidArguments(str)
 	if not arg_valid then
-		error(("Usage: GetGzipInfo(str): "..arg_err), 2)
+		error(("Usage: LibDeflate:GetGzipInfo(str): "..arg_err), 2)
 	end
-	local retval = {}
-	if string_byte(str, 1) ~= 31 or string_byte(str, 2) ~= 139 then
-		return nil, -1
-	end
-	if string_byte(str, 4) > 0x1f then
-		return nil, -3
-	end
-	if string_byte(str, 3) ~= 8 then
-		return nil, -4
-	else retval.method = "deflate" end
-	retval.uncompressed_name = "stdout"
-	local offset = 10
-	if (string_byte(str, 4) / 4) % 2 ~= 0 then
-		offset = offset + string_byte(str, 11) * 256 + string_byte(str, 12)
-	end
-	if (string_byte(str, 4) / 8) % 2 ~= 0 then
-		local start_offset = offset
-		while string_byte(str, offset) ~= 0 do offset = offset + 1 end
-		retval.uncompressed_name = string.sub(str, start_offset, offset - 1)
-	end
-	if (string_byte(str, 4) / 16) % 2 ~= 0 then
-		while string_byte(str, offset) ~= 0 do offset = offset + 1 end
-	end
-	if (string_byte(str, 4) / 2) % 2 ~= 0 then
-		local src_checksum = string_byte(str, offset + 1) * 256
-							 + string_byte(str, offset)
-		local target_checksum = self:CRC32(string.sub(str, 1, offset - 1)) % 0x10000
-		if xor32(src_checksum, target_checksum) ~= 0xFFFF then return nil, -5 end
-		offset = offset + 2
-	end
-	retval.crc = string_byte(str, -5) * 0x1000000 + string_byte(str, -6) * 0x10000
-			   + string_byte(str, -7) * 256 + string_byte(str, -8)
-	retval.uncompressed = string_byte(str, -1) * 0x1000000 + string_byte(str, -2) * 0x10000
-						+ string_byte(str, -3) * 256 + string_byte(str, -4)
-	retval.compressed = string.len(str)
-	retval.timestamp = string_byte(str, 8) * 0x1000000 + string_byte(str, 7) * 0x10000
-					 + string_byte(str, 6) * 0x100 + string_byte(str, 5)
-	retval.ratio = (1 - (retval.compressed / retval.uncompressed)) * 100
-	retval.offset = offset
-	return retval
+
+	local info, err, _ = GetGzipInfoInternal(str)
+	return info, err
 end
 
 --- Decompress a gzip compressed data.
@@ -3090,14 +3349,37 @@ function LibDeflate:DecompressGzip(str)
 	if not arg_valid then
 		error(("Usage: LibDeflate:DecompressGzip(str): "..arg_err), 2)
 	end
-	local info, err = GetGzipInfo(str)
-	if info == nil then return info, err end
-	local res, errr = DecompressDeflateInternal(string.sub(str, info.offset + 1, -8))
-	if res == nil then return res, errr end
-	if string.len(res) ~= info.uncompressed then return nil, -6 end
-	local target_checksum = xor32(self:CRC32(res), 0xFFFFFFFF)
-	if xor32(info.crc, target_checksum) ~= 0xFFFFFFFF then return nil, -2 end
-	return res, 0
+	local info, err, state = GetGzipInfoInternal(str)
+	if not info then
+		return nil, err
+	end
+
+	local result, status = Inflate(state)
+	if not result then
+		return nil, status
+	end
+
+	state.SkipToByteBoundary()
+
+	local crc32 = state.ReadBits(16) + state.ReadBits(16) * 65536
+	if state.ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+	if crc32 ~= self:CRC32(result) then
+		return nil, ERRORS.UNMATCHED_DATA_SIZE
+	end
+
+	local uncompressed_size = state.ReadBits(16) + state.ReadBits(16) * 65536
+	if state.ReaderBitlenLeft() < 0 then
+		return nil, ERRORS.EOF
+	end
+	if uncompressed_size ~= #result then
+		return nil, ERRORS.UNMATCHED_DATA_SIZE
+	end
+	local bitlen_left = state.ReaderBitlenLeft()
+	assert(bitlen_left % 8 == 0)
+	local bytelen_left = bitlen_left / 8
+	return result, bytelen_left
 end
 
 -- Encoding algorithms
