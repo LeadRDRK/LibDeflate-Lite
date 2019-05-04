@@ -437,7 +437,7 @@ local _crc_table3 = {
 
 --- Calculate the CRC-32 checksum of the string.
 -- @param str [string] the input string to calculate its CRC-32 checksum.
--- @param init_value [nil/integer] The initial crc32 value. If nil, use 0
+-- @param init_value [nil/integer] The initial crc32 value. If nil, use 0.
 -- @return [integer] The CRC-32 checksum, which is greater or equal to 0,
 -- and less than 2^32 (4294967296).
 function LibDeflate:Crc32(str, init_value)
@@ -481,9 +481,10 @@ end
 -- See RFC1950 Page 9 https://tools.ietf.org/html/rfc1950 for the
 -- definition of Adler-32 checksum.
 -- @param str [string] the input string to calcuate its Adler-32 checksum.
+-- @param init_value [nil/integer] The initial crc32 value. If nil, use 1.
 -- @return [integer] The Adler-32 checksum, which is greater or equal to 0,
 -- and less than 2^32 (4294967296).
-function LibDeflate:Adler32(str)
+function LibDeflate:Adler32(str, init_value)
 	-- This function is loop unrolled by better performance.
 	--
 	-- Here is the minimum code:
@@ -503,8 +504,9 @@ function LibDeflate:Adler32(str)
 	local strlen = #str
 
 	local i = 1
-	local a = 1
-	local b = 0
+	init_value = (init_value or 1) % 4294967296
+	local a = init_value % 65536
+	local b = (init_value - a) / 65536
 	while i <= strlen - 15 do
 		local x1, x2, x3, x4, x5, x6, x7, x8,
 			x9, x10, x11, x12, x13, x14, x15, x16 = string_byte(str, i, i+15)

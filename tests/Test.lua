@@ -2060,42 +2060,68 @@ if not LESS_BIG_TESTS then
 	end
 end -- if not LESS_BIG_TESTS
 
+do
+	local _adler32_expected = {
+		 [""] = 1,
+		 ["1"] = 0x00320032,
+		 ["12"] = 0x00960064,
+		 ["123"] = 0x012D0097,
+		 ["1234"] = 0x01F800CB,
+		 ["12345"] = 0x02F80100,
+		 ["123456"] = 0x042E0136,
+		 ["1234567"] = 0x059B016D,
+		 ["12345678"] = 0x074001A5,
+		 ["123456789"] = 0x091E01DE,
+		 ["1234567890"] = 0x0B2C020E,
+		 ["1234567890a"] = 0x0D9B026F,
+		 ["1234567890ab"] = 0x106C02D1,
+		 ["1234567890abc"] = 0x13A00334,
+		 ["1234567890abcd"] = 0x17380398,
+		 ["1234567890abcde"] = 0x1B3503FD,
+		 ["1234567890abcdef"] = 0x1F980463,
+		 ["1234567890abcefg"] = 0x1F9E0466,
+		 ["1234567890abcefgh"] = 0x246C04CE,
+		 ["1234567890abcefghi"] = 0x29A30537,
+		 ["1234567890abcefghij"] = 0x2F4405A1,
+		 ["1234567890abcefghijk"] = 0x3550060C,
+		 ["1234567890abcefghijkl"] = 0x3BC80678,
+		 ["1234567890abcefghijklm"] = 0x42AD06E5,
+		 ["1234567890abcefghijklmn"] = 0x4A000753,
+		 ["1234567890abcefghijklmno"] = 0x51C207C2,
+		 ["1234567890abcefghijklmnop"] = 0x59F40832,
+		 ["1234567890abcefghijklmnopq"] = 0x629708A3,
+		 ["1234567890abcefghijklmnopqr"] = 0x6BAC0915,
+		 ["1234567890abcefghijklmnopqrs"] = 0x75340988,
+		 ["1234567890abcefghijklmnopqrst"] = 0x7F3009FC,
+		 ["1234567890abcefghijklmnopqrstu"] = 0x89A10A71,
+		 ["1234567890abcefghijklmnopqrstuv"] = 0x94880AE7,
+		 ["1234567890abcefghijklmnopqrstuvw"] = 0x9FE60B5E,
+		 ["1234567890abcefghijklmnopqrstuvwx"] = 0xABBC0BD6,
+		 ["1234567890abcefghijklmnopqrstuvwxy"] = 0xB80B0C4F,
+		 ["1234567890abcefghijklmnopqrstuvwxyz"] = 0xC4D40CC9,
+		 ["1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"] =
+			0x8C40150C,
+	}
 	function TestInternals:TestAdler32()
-		lu.assertEquals(LibDeflate:Adler32(""), 1)
-		lu.assertEquals(LibDeflate:Adler32("1"), 0x00320032)
-		lu.assertEquals(LibDeflate:Adler32("12"), 0x00960064)
-		lu.assertEquals(LibDeflate:Adler32("123"), 0x012D0097)
-		lu.assertEquals(LibDeflate:Adler32("1234"), 0x01F800CB)
-		lu.assertEquals(LibDeflate:Adler32("12345"), 0x02F80100)
-		lu.assertEquals(LibDeflate:Adler32("123456"), 0x042E0136)
-		lu.assertEquals(LibDeflate:Adler32("1234567"), 0x059B016D)
-		lu.assertEquals(LibDeflate:Adler32("12345678"), 0x074001A5)
-		lu.assertEquals(LibDeflate:Adler32("123456789"), 0x091E01DE)
-		lu.assertEquals(LibDeflate:Adler32("1234567890"), 0x0B2C020E)
-		lu.assertEquals(LibDeflate:Adler32("1234567890a"), 0x0D9B026F)
-		lu.assertEquals(LibDeflate:Adler32("1234567890ab"), 0x106C02D1)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abc"), 0x13A00334)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcd"), 0x17380398)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcde"), 0x1B3503FD)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcdef"), 0x1F980463)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcefg"), 0x1F9E0466)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcefgh"), 0x246C04CE)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcefghi"), 0x29A30537)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcefghij"), 0x2F4405A1)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcefghijk"), 0x3550060C)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcefghijkl"), 0x3BC80678)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcefghijklm"),
-			0x42AD06E5)
-		lu.assertEquals(LibDeflate:Adler32("1234567890abcefghijklmn"),
-			0x4A000753)
-		lu.assertEquals(LibDeflate:Adler32(
-			"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"),
-			0x8C40150C)
+		for str, expected_adler32 in pairs(_adler32_expected) do
+			lu.assertEquals(expected_adler32,LibDeflate:Adler32(str))
+		end
 		local adler32Test = GetFileData("tests/data/adler32Test.txt")
 		lu.assertEquals(LibDeflate:Adler32(adler32Test), 0x5D9BAF5D)
 		local adler32Test2 = GetFileData("tests/data/adler32Test2.txt")
 		lu.assertEquals(LibDeflate:Adler32(adler32Test2), 0xD6A07E29)
 	end
+	function TestInternals:TestAdler32WithInitValue()
+		for str, expected_adler32 in pairs(_adler32_expected) do
+			for i = 1, #str + 1 do
+				local first_half = str:sub(1, i-1)
+				local second_half = str:sub(i, #str)
+				lu.assertEquals(expected_adler32,
+				LibDeflate:Adler32(second_half, LibDeflate:Adler32(first_half)))
+			end
+		end
+	end
+end
 
 	function TestInternals:TestCrcTable()
 		local _crc_table0 = {}
@@ -2196,7 +2222,6 @@ do
 				lu.assertEquals(expected_crc32,
 				LibDeflate:Crc32(second_half, LibDeflate:Crc32(first_half)))
 			end
-
 		end
 	end
 end
