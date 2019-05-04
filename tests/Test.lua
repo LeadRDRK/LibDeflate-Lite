@@ -444,13 +444,16 @@ local function GetFirstBlockType(compressed_data, compression_type)
         end
         local offset = 10
         if band(string.byte(compressed_data, 4), 4) == 4 then
-            offset = offset + string.byte(compressed_data, 11) * 256 + string.byte(compressed_data, 12)
+            offset = offset + string.byte(compressed_data, 11) * 256
+				+ string.byte(compressed_data, 12)
         end
         if band(string.byte(compressed_data, 4), 8) == 8 then
-            while string.byte(compressed_data, offset) ~= 0 do offset = offset + 1 end
+            while string.byte(compressed_data, offset) ~= 0 do
+				offset = offset + 1 end
         end
         if band(string.byte(compressed_data, 4), 16) == 16 then
-            while string.byte(compressed_data, offset) ~= 0 do offset = offset + 1 end
+            while string.byte(compressed_data, offset) ~= 0 do
+				offset = offset + 1 end
         end
         if band(string.byte(compressed_data, 4), 2) == 2 then
             offset = offset + 2
@@ -593,7 +596,8 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 					, compress_pad_bitlen)
                 local compression_type = 0
                 if compress_func_name:find("Zlib") then compression_type = 1
-                elseif compress_func_name:find("Gzip") then compression_type = 2 end
+                elseif compress_func_name:find("Gzip") then
+					compression_type = 2 end
 				if strategy == "fixed" then
 					lu.assertEquals(GetFirstBlockType(compress_data, compression_type)
 					, (level == 0) and 0 or 1,

@@ -748,7 +748,8 @@ local ERRORS = {
 	-- Invalid data checksum for zlib/gzip (Adler32 for zlib, crc32 for gzip)
 	["UNMATCHED_DATA_CHECKSUM"] = -5,
 	["UNMATCHED_DATA_SIZE"] = -6, -- Invalid data size for gzip(ISIZE)
-	["UNKNOWN_COMPRESSION_METHOD"] = -7, -- Compression method unknown for zlib/gzip
+	-- Compression method unknown for zlib/gzip
+	["UNKNOWN_COMPRESSION_METHOD"] = -7,
 }
 LibDeflate.ERRORS = ERRORS
 
@@ -800,7 +801,8 @@ local function IsValidArguments(str,
 						:format(tostring(v))
 				elseif k == "gzip_filename" or k == "gzip_comment" then
 					if type(v) ~= "string" then
-						return false, ("'configs' - '%s': %s expected got '%s'.")
+						return false,
+							("'configs' - '%s': %s expected got '%s'.")
 							:format(k, "string", type(v))
 					end
 					for i=1, #v do
@@ -2277,8 +2279,6 @@ function LibDeflate:CompressZlibWithDict(str, dictionary, configs)
 	return CompressZlibInternal(str, dictionary, configs)
 end
 
-local function byte(num, b) return ((num / _pow2[b*8])-(num / _pow2[b*8])%1) % 0x100 end
-
 --- Compress using the gzip format.
 -- @param str [string] the data to be compressed.
 -- @param configs [table/nil] The configuration table to control the compression
@@ -2326,7 +2326,8 @@ function LibDeflate:CompressGzip(str, configs)
 		MTIME = configs.gzip_file_mtime
 	elseif type(_G.os) == "table" and type(_G.os.time) == "function" then
 		MTIME = _G.os.time() % 4294967296  -- Avoid the year 2038 problem
-		-- os.time() should return integer, just in case some implementation returns float
+		-- os.time() should return integer
+		-- just in case some implementation returns float
 		MTIME = MTIME - (MTIME % 1)
 	else
 		MTIME = 0
@@ -2377,7 +2378,8 @@ function LibDeflate:CompressGzip(str, configs)
 	WriteBits(CRC % 65536, 16)
 	WriteBits((CRC - CRC % 65536) / 65536, 16)
 
-	local ISIZE = (#str) % 4294967296 -- The size of the original (uncompressed) input data
+	-- The size of the original (uncompressed) input data
+	local ISIZE = (#str) % 4294967296
 
 	-- Currently WriteBits() only support write only to 16 bits at one time
 	WriteBits(ISIZE % 65536, 16)
@@ -2587,8 +2589,8 @@ local function CreateReader(input_string)
 		return str
 	end
 
-	return ReadBits, ReadBytesOneByOne, Decode, ReaderBitlenLeft, SkipToByteBoundary
-		   , ReadString, ReadNullTerminatedStringWithoutNull
+	return ReadBits, ReadBytesOneByOne, Decode, ReaderBitlenLeft,
+		   SkipToByteBoundary, ReadString, ReadNullTerminatedStringWithoutNull
 end
 
 -- Create a deflate state, so I can pass in less arguments to functions.
@@ -3211,7 +3213,8 @@ local function GetGzipInfoInternal(str)
 	local ReadBits = state.ReadBits
 	local ReaderBitlenLeft = state.ReaderBitlenLeft
 	local ReadString = state.ReadString
-	local ReadNullTerminatedStringWithoutNull = state.ReadNullTerminatedStringWithoutNull
+	local ReadNullTerminatedStringWithoutNull =
+		state.ReadNullTerminatedStringWithoutNull
 	local info = {}
 	info.compression_method = "deflate"
 	info.footer_size = 8
@@ -3318,15 +3321,18 @@ local function GetGzipInfoInternal(str)
 	end
 	info.crc32 = 16777216 * string_byte(str, -5) + string_byte(str, -6) * 65536
 	           + string_byte(str, -7) * 256 + string_byte(str, -8)
-	info.uncompressed_size = 16777216 * string_byte(str, -1) + string_byte(str, -2) * 65536
-	           + string_byte(str, -3) * 256 + string_byte(str, -4)
+	info.uncompressed_size = 16777216 * string_byte(str, -1)
+		+ string_byte(str, -2) * 65536 + string_byte(str, -3) * 256
+		+ string_byte(str, -4)
 	return info, 0, state
 end
 
 -- Returns a table with information about the gzip.
 -- No actual decompression is performed.
--- Some error checkings are performed, but the checksum of compressed data is not checked.
--- @return [table/nil] The table containing the Gzip info. nil if input is not invalid gzip data.
+-- Some error checkings are performed
+-- but the checksum of compressed data is not checked.
+-- @return [table/nil] The table containing the Gzip info.
+-- nil if input is not invalid gzip data.
 -- @return [integer] 0 if success. The error code on failure.
 function LibDeflate:GetGzipInfo(str)
 	local arg_valid, arg_err = IsValidArguments(str)
@@ -3923,7 +3929,8 @@ if io and os and debug and arg then
 	local io = io
 	local os = os
 	local exit = os.exit or error
-	local stderr = io.stderr and io.stderr.write or function(self, text) printError(text) end
+	local stderr = io.stderr and io.stderr.write or function(self, text)
+		printError(text) end
 	local function openFile(path, mode)
 		if shell then
 			local file = fs.open(path, mode)
@@ -3939,7 +3946,9 @@ if io and os and debug and arg then
 				return _retval
 			end end
 			if string.find(mode, "w") then retval.write = function(this, str)
-				if type(str) ~= "string" then error("bad argument #1 (expected string, got " .. type(str) .. ")", 2) end
+				if type(str) ~= "string" then error(
+					"bad argument #1 (expected string, got "
+					.. type(str) .. ")", 2) end
 				for s in string.gmatch(str, ".") do file.write(string.byte(s)) end
 				file.close()
 			end end
