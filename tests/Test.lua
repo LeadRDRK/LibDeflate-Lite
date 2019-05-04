@@ -3326,6 +3326,29 @@ TestExported = {}
 			lu.assertEquals(type(v), exported[k])
 		end
 	end
+
+-- Test with all possible compression methods, levels and strategy
+RoundTripTest = {}
+	function RoundTripTest:TestsFromGzip()
+		local files = {
+			"gzip-env", "helin-segv", "help-version", "hufts", "hufts-segv.gz",
+			"init.cfg", "init.sh", "keep", "list", "Makefile.am",
+			"memcpy-abuse", "mixed", "null-suffix-clobber","reproducible",
+			"stdin", "timestamp", "trailing-nul", "unpack-invalid",
+			"unpack-valid", "upper-suffix", "z-suffix", "zdiff",
+			"zgrep-context", "zgrep-f", "zgrep-signal", "znew-k"}
+		for _, f in pairs(files) do
+			local fname = "tests/data/3rdparty/gnu_gzip_tests/"..f
+			CheckCompressAndDecompressFile(fname,
+				"all", nil)
+			CheckCompressAndDecompressFile(fname,
+				"all", "huffman_only")
+			CheckCompressAndDecompressFile(fname,
+				"all", "dynamic")
+			CheckCompressAndDecompressFile(fname,
+				"all", "fixed")
+		end
+	end
 --------------------------------------------------------------
 -- Coverage Tests --------------------------------------------
 --------------------------------------------------------------
