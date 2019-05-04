@@ -33,3 +33,6 @@ zdeflate
 tests/huge_data/*
 !tests/huge_data/README.md
 .vscode
+tmp_*
+.idea/
+venv
