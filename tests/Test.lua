@@ -3538,10 +3538,10 @@ local runner = lu.LuaUnit.new()
 local exitCode = runner:runSuite()
 print("========================================================")
 print("LibDeflate", "Version:", LibDeflate._VERSION, "\n")
-print("Exported keys:")
+-- print("Exported keys:")
 for k, v in pairs(LibDeflate) do
 	assert(type(k) == "string")
-	print(k, type(v))
+	-- print(k, type(v))
 end
 print("--------------------------------------------------------")
 if ENABLE_FULL_BACKWARD_COMPACT_CHECK then
