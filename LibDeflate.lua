@@ -33,11 +33,11 @@ any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see https://www.gnu.org/licenses/.
+along with this program. If not, see https://www.gnu.org/licenses/.
 
 Credits:
 1. zlib, by Jean-loup Gailly (compression) and Mark Adler (decompression).
@@ -119,8 +119,8 @@ local type = type
 
 -- Converts i to 2^i, (0<=i<=32)
 -- This is used to implement bit left shift and bit right shift.
--- "x >> y" in C:   "(x-x%_pow2[y])/_pow2[y]" in Lua
--- "x << y" in C:   "x*_pow2[y]" in Lua
+-- "x >> y" in C: "(x-x%_pow2[y])/_pow2[y]" in Lua
+-- "x << y" in C: "x*_pow2[y]" in Lua
 local _pow2 = {}
 
 -- Converts any byte to a character, (0<=byte<=255)
@@ -320,16 +320,16 @@ local function Xor8(a, b)
 		fact = fact / 2
 	end
 	while fact >= 1 do
-        ret = ret + (((a >= fact or b >= fact)
+		ret = ret + (((a >= fact or b >= fact)
 			and (a < fact or b < fact)) and fact or 0)
-        a = a - ((a >= fact) and fact or 0)
-        b = b - ((b >= fact) and fact or 0)
-	    fact = fact / 2
+		a = a - ((a >= fact) and fact or 0)
+		b = b - ((b >= fact) and fact or 0)
+		fact = fact / 2
 	end
 	return ret
 end
 
--- table to cache the result of uint8 xor(x, y)  (0<=x,y<=255)
+-- table to cache the result of uint8 xor(x, y) (0<=x,y<=255)
 local _xor8_table
 
 local function GenerateXorTable()
@@ -446,35 +446,35 @@ function LibDeflate:Crc32(str, init_value)
 	if not _xor8_table then
 		GenerateXorTable()
 	end
-    -- The value of bytes of crc32
+	-- The value of bytes of crc32
 	-- crc0 is the least significant byte
 	-- crc3 is the most significant byte
-    local crc0 = crc % 256
-    crc = (crc - crc0) / 256
-    local crc1 = crc % 256
-    crc = (crc - crc1) / 256
-    local crc2 = crc % 256
-    local crc3 = (crc - crc2) / 256
+	local crc0 = crc % 256
+	crc = (crc - crc0) / 256
+	local crc1 = crc % 256
+	crc = (crc - crc1) / 256
+	local crc2 = crc % 256
+	local crc3 = (crc - crc2) / 256
 
 	local _xor_vs_255 = _xor8_table[255]
 	crc0 = _xor_vs_255[crc0]
 	crc1 = _xor_vs_255[crc1]
 	crc2 = _xor_vs_255[crc2]
 	crc3 = _xor_vs_255[crc3]
-    for i=1, #str do
+	for i=1, #str do
 		local byte = string_byte(str, i)
 		local k = _xor8_table[crc0][byte]
 		crc0 = _xor8_table[_crc_table0[k] ][crc1]
 		crc1 = _xor8_table[_crc_table1[k] ][crc2]
 		crc2 = _xor8_table[_crc_table2[k] ][crc3]
 		crc3 = _crc_table3[k]
-    end
+	end
 	crc0 = _xor_vs_255[crc0]
 	crc1 = _xor_vs_255[crc1]
 	crc2 = _xor_vs_255[crc2]
 	crc3 = _xor_vs_255[crc3]
-    crc = crc0 + crc1*256 + crc2*65536 + crc3*16777216
-    return crc
+	crc = crc0 + crc1*256 + crc2*65536 + crc3*16777216
+	return crc
 end
 
 --- Calculate the Adler-32 checksum of the string. <br>
@@ -511,7 +511,7 @@ function LibDeflate:Adler32(str)
 		b = (b+16*a+16*x1+15*x2+14*x3+13*x4+12*x5+11*x6+10*x7+9*x8+8*x9
 			+7*x10+6*x11+5*x12+4*x13+3*x14+2*x15+x16)%65521
 		a = (a+x1+x2+x3+x4+x5+x6+x7+x8+x9+x10+x11+x12+x13+x14+x15+x16)%65521
-		i =  i + 16
+		i = i + 16
 	end
 	while (i <= strlen) do
 		local x = string_byte(str, i, i)
@@ -567,7 +567,7 @@ end
 -- @param adler32 [integer] The Adler-32 checksum of 'str'. Please pass in this
 -- parameter as a hardcoded constant, in order to verify the content of 'str'.
 -- The value of this parameter should be known before your program runs.
--- @return  [table] The dictionary used for preset dictionary compression and
+-- @return [table] The dictionary used for preset dictionary compression and
 -- decompression.
 -- @raise error if 'strlen' does not match the length of 'str',
 -- or if 'adler32' does not match the Adler-32 checksum of 'str'.
@@ -808,28 +808,30 @@ local function IsValidArguments(str,
 					for i=1, #v do
 						if string_byte(v, i) == 0 then
 							return false, ("'configs' - unsupported '%s':"
-										  .." NULL character is not allowed.")
+										.." NULL character is not allowed.")
 								:format(k)
 						end
 					end
 				elseif k == "gzip_file_mtime" then
 					if type(v) ~= "number" then
-						return false, ("'configs' - unsupported '%s': %s expected got '%s'.")
+						return false,
+						("'configs' - unsupported '%s': %s expected got '%s'.")
 							:format(k, "number", type(v))
 					end
 					if v % 1 ~= 0 or v < 0 or v >= 4294967296 then
 						return false, ("'configs' - unsupported '%s':"
-									   .." 32bit non-negative integer expected got '%s'.")
+							.." 32bit non-negative integer expected got '%s'.")
 							:format(k, tostring(v))
 					end
 				elseif k == "gzip_os" then
 					if type(v) ~= "number" then
-						return false, ("'configs' - unsupported '%s': %s expected got '%s'.")
+						return false,
+						("'configs' - unsupported '%s': %s expected got '%s'.")
 							:format(k, "number", type(v))
 					end
 					if v % 1 ~= 0 or v < 0 or v >= 256 then
 						return false, ("'configs' - unsupported '%s':"
-									   .." 8bit non-negative integer expected got '%s'.")
+							.." 8bit non-negative integer expected got '%s'.")
 							:format(k, tostring(v))
 					end
 				end
@@ -968,10 +970,10 @@ end
 -- Push an element into a max heap
 -- @param heap A max heap whose max element is at index 1.
 -- @param e The element to be pushed. Assume element "e" is a table
---  and comparison is done via its first entry e[1]
+-- and comparison is done via its first entry e[1]
 -- @param heap_size current number of elements in the heap.
---  NOTE: There may be some garbage stored in
---  heap[heap_size+1], heap[heap_size+2], etc..
+-- NOTE: There may be some garbage stored in
+-- heap[heap_size+1], heap[heap_size+2], etc..
 -- @return nil
 local function MinHeapPush(heap, e, heap_size)
 	heap_size = heap_size + 1
@@ -2193,7 +2195,7 @@ end
 -- . If nil, use the default configuration.
 -- @return [string] The compressed data.
 -- @return [integer] The number of bits padded at the end of output.
--- 0 <= bits < 8  <br>
+-- 0 <= bits < 8 <br>
 -- This means the most significant "bits" of the last byte of the returned
 -- compressed data are padding bits and they don't affect decompression.
 -- You don't need to use this value unless you want to do some postprocessing
@@ -2217,7 +2219,7 @@ end
 -- . If nil, use the default configuration.
 -- @return [string] The compressed data.
 -- @return [integer] The number of bits padded at the end of output.
--- 0 <= bits < 8  <br>
+-- 0 <= bits < 8 <br>
 -- This means the most significant "bits" of the last byte of the returned
 -- compressed data are padding bits and they don't affect decompression.
 -- You don't need to use this value unless you want to do some postprocessing
@@ -2298,9 +2300,9 @@ function LibDeflate:CompressGzip(str, configs)
 
 	local WriteBits, WriteString, FlushWriter = CreateWriter()
 
-	local ID1 = 31  -- IDentification 1
+	local ID1 = 31 -- IDentification 1
 	local ID2 = 139 -- IDentification 2
-	local CM = 8    -- Compression method: DEFLATE
+	local CM = 8 -- Compression method: DEFLATE
 
 	WriteBits(ID1, 8)
 	WriteBits(ID2, 8)
@@ -2310,7 +2312,7 @@ function LibDeflate:CompressGzip(str, configs)
 	local FNAME = 8 -- indicate filename is present in header
 	local FCOMMENT = 16 -- indicate comment is present in header
 
-	local FLG = FHCRC   -- FLaGs
+	local FLG = FHCRC -- FLaGs
 
 	if configs and configs.gzip_filename then
 		FLG = FLG + FNAME
@@ -2325,7 +2327,7 @@ function LibDeflate:CompressGzip(str, configs)
 	if configs and configs.gzip_file_mtime then
 		MTIME = configs.gzip_file_mtime
 	elseif type(_G.os) == "table" and type(_G.os.time) == "function" then
-		MTIME = _G.os.time() % 4294967296  -- Avoid the year 2038 problem
+		MTIME = _G.os.time() % 4294967296 -- Avoid the year 2038 problem
 		-- os.time() should return integer
 		-- just in case some implementation returns float
 		MTIME = MTIME - (MTIME % 1)
@@ -2335,7 +2337,7 @@ function LibDeflate:CompressGzip(str, configs)
 	WriteBits(MTIME % 65536, 16)
 	WriteBits((MTIME - MTIME % 65536)/65536, 16)
 
-	local XFL = 0  -- eXtra FLags, for use by specific compression methods.
+	local XFL = 0 -- eXtra FLags, for use by specific compression methods.
 	if configs and configs.level then
 		if configs.level <= 1 then
 			XFL = 4 -- compressor used fastest algorithm
@@ -2366,7 +2368,7 @@ function LibDeflate:CompressGzip(str, configs)
 
 	local header_crc32 = self:Crc32(header)
 	assert(header_crc32 >= 0 and header_crc32 < 4294967296)
-	local CRC16 = header_crc32 % 65536  -- CRC16 checksum of gzip header
+	local CRC16 = header_crc32 % 65536 -- CRC16 checksum of gzip header
 	WriteBits(CRC16, 16)
 
 	Deflate(configs, WriteBits, WriteString, FlushWriter, str, nil)
@@ -2590,7 +2592,7 @@ local function CreateReader(input_string)
 	end
 
 	return ReadBits, ReadBytesOneByOne, Decode, ReaderBitlenLeft,
-		   SkipToByteBoundary, ReadString, ReadNullTerminatedStringWithoutNull
+		SkipToByteBoundary, ReadString, ReadNullTerminatedStringWithoutNull
 end
 
 -- Create a deflate state, so I can pass in less arguments to functions.
@@ -3262,7 +3264,7 @@ local function GetGzipInfoInternal(str)
 		return nil, ERRORS.EOF
 	end
 
-	ReadBits(8)  -- XFL (extra flag), ignored
+	ReadBits(8) -- XFL (extra flag), ignored
 	if ReaderBitlenLeft() < 0 then
 		return nil, ERRORS.EOF
 	end
@@ -3320,7 +3322,7 @@ local function GetGzipInfoInternal(str)
 		return nil, ERRORS.EOF
 	end
 	info.crc32 = 16777216 * string_byte(str, -5) + string_byte(str, -6) * 65536
-	           + string_byte(str, -7) * 256 + string_byte(str, -8)
+		+ string_byte(str, -7) * 256 + string_byte(str, -8)
 	info.uncompressed_size = 16777216 * string_byte(str, -1)
 		+ string_byte(str, -2) * 65536 + string_byte(str, -3) * 256
 		+ string_byte(str, -4)
@@ -3851,11 +3853,11 @@ function LibDeflate:DecodeForPrint(str)
 			_byte_to_char[b1].._byte_to_char[b2].._byte_to_char[b3]
 	end
 
-	local cache  = 0
+	local cache = 0
 	local cache_bitlen = 0
 	while i <= strlen do
 		local x = string_byte(str, i, i)
-		x =  _6bit_to_byte[x]
+		x = _6bit_to_byte[x]
 		if not x then
 			return nil
 		end

@@ -34,21 +34,21 @@ end
 
 if NO_EXTENDED_TESTS then
 	print("======= no extended tests (Not calling external program "
-	      .."and not checking memory leak "
-		  .."and not testing error messages"
-		  .."and not testing LibDeflate commandline)"
-		  .."and code coverage tests are disabled =======")
+		.."and not checking memory leak "
+		.."and not testing error messages"
+		.."and not testing LibDeflate commandline)"
+		.."and code coverage tests are disabled =======")
 end
 
 -- Some interpreter is too slow that exceeding the time limit of online CI
 -- Number of tests with big inputs must be reduced in this case.
 if LESS_BIG_TESTS then
 	print("======= Less tests with big input are enabled"
-		  .."and code coverage tests are disabled =======")
+		.."and code coverage tests are disabled =======")
 end
 
 package.path = ("?.lua;tests/third_party/?.lua;tests/old_version/?.lua;")
-               ..(package.path or "")
+	..(package.path or "")
 
 local OldLibDeflate = nil
 if ENABLE_FULL_BACKWARD_COMPACT_CHECK then
@@ -111,22 +111,22 @@ do
 end
 
 local function DeepCopy(obj)
-    local SearchTable = {} -- luacheck: ignore
+	local SearchTable = {} -- luacheck: ignore
 
-    local function Func(object)
-        if type(object) ~= "table" then
-            return object
-        end
-        local NewTable = {}
-        SearchTable[object] = NewTable
-        for k, v in pairs(object) do
-            NewTable[Func(k)] = Func(v)
-        end
+	local function Func(object)
+		if type(object) ~= "table" then
+			return object
+		end
+		local NewTable = {}
+		SearchTable[object] = NewTable
+		for k, v in pairs(object) do
+			NewTable[Func(k)] = Func(v)
+		end
 
-        return setmetatable(NewTable, getmetatable(object))
-    end
+		return setmetatable(NewTable, getmetatable(object))
+	end
 
-    return Func(obj)
+	return Func(obj)
 end
 
 local function GetTableSize(t)
@@ -157,8 +157,8 @@ do
 				val = val*16 + b - _byteA + 10
 			elseif b >= _bytea and b <= _bytef then
 				val = val*16 + b - _bytea + 10
-			elseif val ~= 1 and val < 32 then  -- one digit followed by delimiter
-	            val = val + 240                 -- make it look like two digits
+			elseif val ~= 1 and val < 32 then-- one digit followed by delimiter
+				val = val + 240	-- make it look like two digits
 			end
 			if val > 255 then
 				t[#t+1] = string_char(val % 256)
@@ -202,11 +202,11 @@ local function SimpleXor32(a, b)
 		fact = fact / 2
 	end
 	while fact >= 1 do
-        ret = ret + (((a >= fact or b >= fact)
+		ret = ret + (((a >= fact or b >= fact)
 			and (a < fact or b < fact)) and fact or 0)
-        a = a - ((a >= fact) and fact or 0)
-        b = b - ((b >= fact) and fact or 0)
-	    fact = fact/2
+		a = a - ((a >= fact) and fact or 0)
+		b = b - ((b >= fact) and fact or 0)
+		fact = fact/2
 	end
 	return ret
 end
@@ -401,7 +401,7 @@ local function MemCheckAndBenchmarkFunc(lib, func_name, ...)
 	local elapsed_time
 	local ret
 	FullMemoryCollect()
-	memory_before =  math.floor(collectgarbage("count")*1024)
+	memory_before = math.floor(collectgarbage("count")*1024)
 	FullMemoryCollect()
 	start_time = os.clock()
 	elapsed_time = -1
@@ -431,34 +431,34 @@ local function GetFirstBlockType(compressed_data, compression_type)
 			first_block_byte_index = 7
 		else
 			first_block_byte_index = 3
-        end
-    elseif compression_type == 2 then
-        local band = function(a, b)
-            local p,c=1,0
-            while a>0 and b>0 do
-                local ra,rb=a%2,b%2
-                if ra+rb>1 then c=c+p end
-                a,b,p=(a-ra)/2,(b-rb)/2,p*2
-            end
-            return c
-        end
-        local offset = 10
-        if band(string.byte(compressed_data, 4), 4) == 4 then
-            offset = offset + string.byte(compressed_data, 11) * 256
+		end
+	elseif compression_type == 2 then
+		local band = function(a, b)
+			local p,c=1,0
+			while a>0 and b>0 do
+				local ra,rb=a%2,b%2
+				if ra+rb>1 then c=c+p end
+				a,b,p=(a-ra)/2,(b-rb)/2,p*2
+			end
+			return c
+		end
+		local offset = 10
+		if band(string.byte(compressed_data, 4), 4) == 4 then
+			offset = offset + string.byte(compressed_data, 11) * 256
 				+ string.byte(compressed_data, 12)
-        end
-        if band(string.byte(compressed_data, 4), 8) == 8 then
-            while string.byte(compressed_data, offset) ~= 0 do
+		end
+		if band(string.byte(compressed_data, 4), 8) == 8 then
+			while string.byte(compressed_data, offset) ~= 0 do
 				offset = offset + 1 end
-        end
-        if band(string.byte(compressed_data, 4), 16) == 16 then
-            while string.byte(compressed_data, offset) ~= 0 do
+			end
+		if band(string.byte(compressed_data, 4), 16) == 16 then
+			while string.byte(compressed_data, offset) ~= 0 do
 				offset = offset + 1 end
-        end
-        if band(string.byte(compressed_data, 4), 2) == 2 then
-            offset = offset + 2
-        end
-        first_block_byte_index = offset + 1
+			end
+		if band(string.byte(compressed_data, 4), 2) == 2 then
+			offset = offset + 2
+		end
+		first_block_byte_index = offset + 1
 	end
 	local first_byte = string.byte(compressed_data
 		, first_block_byte_index, first_block_byte_index)
@@ -543,7 +543,7 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 			print(
 				(">>>>> %s: %s size: %d B Level: %s Strategy: %s")
 				:format(is_file and "File" or "String",
-					string_or_filename:sub(1, 40),  origin:len()
+					string_or_filename:sub(1, 40), origin:len()
 					,tostring(level), tostring(strategy)
 				))
 			local compress_to_run = {
@@ -594,9 +594,9 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 				-- to see if decompression still works.
 				compress_data = PutRandomBitsInPaddingBits(compress_data
 					, compress_pad_bitlen)
-                local compression_type = 0
-                if compress_func_name:find("Zlib") then compression_type = 1
-                elseif compress_func_name:find("Gzip") then
+				local compression_type = 0
+				if compress_func_name:find("Zlib") then compression_type = 1
+				elseif compress_func_name:find("Gzip") then
 					compression_type = 2 end
 				if strategy == "fixed" then
 					lu.assertEquals(GetFirstBlockType(compress_data, compression_type)
@@ -606,7 +606,7 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 					lu.assertEquals(GetFirstBlockType(compress_data, compression_type)
 					, (level == 0) and 0 or 2,
 					compress_func_name.." "..tostring(level))
-				elseif strategy == "huffman_only" then  -- luacheck: ignore
+				elseif strategy == "huffman_only" then -- luacheck: ignore
 					-- Emtpy
 				elseif strategy == nil then -- luacheck: ignore
 					-- Empty
@@ -810,7 +810,7 @@ local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 							.." WoWChatChannel data compressed by the"
 							.." old LibDeflate")
 					print("Full backward compatibilty check OKAY for "
-						  ..compress_func_name)
+						..compress_func_name)
 			end
 			end
 			print("")
@@ -903,7 +903,7 @@ end
 local function CheckCompressAndDecompressFile(inputFileName, levels, strategy
 	, output_prefix)
 	return CheckCompressAndDecompress(inputFileName, true, levels, strategy
-									  , output_prefix)
+									, output_prefix)
 end
 
 local function CheckDecompressIncludingError(compress, decompress, is_zlib)
@@ -1111,7 +1111,7 @@ do
 	}
 
 	local function escape_for_gsub(str)
-		return str:gsub("([%z%(%)%.%%%+%-%*%?%[%]%^%$])",  gsub_escape_table)
+		return str:gsub("([%z%(%)%.%%%+%-%*%?%[%]%^%$])", gsub_escape_table)
 	end
 
 	function LibCompressEncoder:GetEncodeTable(reservedChars, escapeChars
@@ -1210,7 +1210,7 @@ do
 							..", self.decode_translate"
 							..tostring(escapeCharIndex)..");")
 
-						escapeCharIndex  = escapeCharIndex + 1
+						escapeCharIndex = escapeCharIndex + 1
 						escapeChar = string_sub(escapeChars
 							, escapeCharIndex, escapeCharIndex)
 
@@ -1542,7 +1542,7 @@ Test_64K = {}
 		end
 		CheckCompressAndDecompressString(table.concat(repeated), "all")
 	end
-end  -- if not LESS_BIG_TESTS
+end -- if not LESS_BIG_TESTS
 
 TestThirdPartyBig = {}
 	function TestThirdPartyBig:TestAsyoulik()
@@ -2106,7 +2106,7 @@ end -- if not LESS_BIG_TESTS
 		lu.assertEquals(LibDeflate:Adler32(adler32Test), 0x5D9BAF5D)
 		local adler32Test2 = GetFileData("tests/data/adler32Test2.txt")
 		lu.assertEquals(LibDeflate:Adler32(adler32Test2), 0xD6A07E29)
-    end
+	end
 
 	function TestInternals:TestCrcTable()
 		local _crc_table0 = {}
@@ -2147,7 +2147,7 @@ end -- if not LESS_BIG_TESTS
 			lu.assertEquals(_crc_table3[i], LibDeflate.internals._crc_table3[i])
 		end
 	end
-    function TestInternals:TestCrc32()
+	function TestInternals:TestCrc32()
 		lu.assertEquals(LibDeflate:Crc32(""), 0)
 		lu.assertEquals(LibDeflate:Crc32("1"), 0x83DCEFB7)
 		lu.assertEquals(LibDeflate:Crc32("12"), 0x4F5344CD)
@@ -3107,8 +3107,8 @@ TestCommandLine = {}
 			.."  -9    slowest and best compression.\n"
 			.."  -d    do decompression instead of compression.\n"
 			.."  --dict <filename> specify the file that contains"
-            .." the entire preset dictionary.\n"
-            .."  --gzip  use gzip format instead of raw deflate.\n"
+			.." the entire preset dictionary.\n"
+			.."  --gzip  use gzip format instead of raw deflate.\n"
 			.."  -h    give this help.\n"
 			.."  --strategy <fixed/huffman_only/dynamic>"
 			.." specify a special compression strategy.\n"
@@ -3302,7 +3302,7 @@ TestExported = {}
 			EncodeForWoWChatChannel = "function",
 			_COPYRIGHT = "string",
 			DecodeForWoWAddonChannel = "function",
-			CompressDeflate  = "function",
+			CompressDeflate = "function",
 			DecompressDeflate = "function",
 			CompressDeflateWithDict = "function",
 			DecompressZlibWithDict = "function",
@@ -3471,7 +3471,7 @@ local function CheckCompressAndDecompressLibCompress(
 		print(
 			(">>>>> %s: %s size: %d B (LibCompress)")
 			:format(is_file and "File" or "String",
-				string_or_filename:sub(1, 40),  origin:len()
+				string_or_filename:sub(1, 40), origin:len()
 			))
 		local compress_to_run = {
 			{"Compress", origin},
