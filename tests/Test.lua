@@ -2136,68 +2136,70 @@ end -- if not LESS_BIG_TESTS
 			lu.assertEquals(_crc_table3[i], LibDeflate.internals._crc_table3[i])
 		end
 	end
+
+do
+	local _crc_expected = {
+		[""] = 0,
+		["1"] = 0x83DCEFB7,
+		["12"] = 0x4F5344CD,
+		["123"] = 0x884863D2,
+		["1234"] = 0x9BE3E0A3,
+		["12345"] = 0xCBF53A1C,
+		["123456"] = 0x0972D361,
+		["1234567"] = 0x5003699F,
+		["12345678"] = 0x9AE0DAAF,
+		["123456789"] = 0xCBF43926,
+		["1234567890"] = 0x261DAEE5,
+		["1234567890a"] = 0x38F1B51A,
+		["1234567890ab"] = 0x8CE4E736,
+		["1234567890abc"] = 0xC98FAE11,
+		["1234567890abcd"] = 0xF2A4E590,
+		["1234567890abcde"] = 0x1F274DFB,
+		["1234567890abcdef"] = 0x5CA32739,
+		["1234567890abcdefg"] = 0x5E8D3059,
+		["1234567890abcdefgh"] = 0x83826287,
+		["1234567890abcdefghi"] = 0x9533A290,
+		["1234567890abcdefghij"] = 0x8FFFC72D,
+		["1234567890abcdefghijk"] = 0x4D32F4EF,
+		["1234567890abcdefghijkl"] = 0xA6FE0FE3,
+		["1234567890abcdefghijklm"] = 0xD8A4BFA5,
+		["1234567890abcdefghijklmn"] = 0xDE6C500A,
+		["1234567890abcdefghijklmno"] = 0xEF04160A,
+		["1234567890abcdefghijklmnop"] = 0x623D73B9,
+		["1234567890abcdefghijklmnopq"] = 0x47DF987C,
+		["1234567890abcdefghijklmnopqr"] = 0x35FD1D12,
+		["1234567890abcdefghijklmnopqrs"] = 0xE882435E,
+		["1234567890abcdefghijklmnopqrst"] = 0x951A418,
+		["1234567890abcdefghijklmnopqrstu"] = 0xE108A3CC,
+		["1234567890abcdefghijklmnopqrstuv"] = 0xF957BDBC,
+		["1234567890abcdefghijklmnopqrstuvw"] = 0xDE4DA308,
+		["1234567890abcdefghijklmnopqrstuvwx"] = 0x82D9D312,
+		["1234567890abcdefghijklmnopqrstuvwxy"] = 0x8E08E8E,
+		["1234567890abcdefghijklmnopqrstuvwxyz"] = 0x68DA3906,
+		["1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"]
+			= 0xED3E1945
+	}
 	function TestInternals:TestCrc32()
-		lu.assertEquals(LibDeflate:Crc32(""), 0)
-		lu.assertEquals(LibDeflate:Crc32("1"), 0x83DCEFB7)
-		lu.assertEquals(LibDeflate:Crc32("12"), 0x4F5344CD)
-		lu.assertEquals(LibDeflate:Crc32("123"), 0x884863D2)
-		lu.assertEquals(LibDeflate:Crc32("1234"), 0x9BE3E0A3)
-		lu.assertEquals(LibDeflate:Crc32("12345"), 0xCBF53A1C)
-		lu.assertEquals(LibDeflate:Crc32("123456"), 0x0972D361)
-		lu.assertEquals(LibDeflate:Crc32("1234567"), 0x5003699F)
-		lu.assertEquals(LibDeflate:Crc32("12345678"), 0x9AE0DAAF)
-		lu.assertEquals(LibDeflate:Crc32("123456789"), 0xCBF43926)
-		lu.assertEquals(LibDeflate:Crc32("1234567890"), 0x261DAEE5)
-		lu.assertEquals(LibDeflate:Crc32("1234567890a"), 0x38F1B51A)
-		lu.assertEquals(LibDeflate:Crc32("1234567890ab"), 0x8CE4E736)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abc"), 0xC98FAE11)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcd"), 0xF2A4E590)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcde"), 0x1F274DFB)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdef"), 0x5CA32739)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefg"), 0x5E8D3059)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefgh"), 0x83826287)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghi"), 0x9533A290)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghij"), 0x8FFFC72D)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijk"), 0x4D32F4EF)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijkl"), 0xA6FE0FE3)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklm"), 0xD8A4BFA5)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmn"),
-			0xDE6C500A)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmno"),
-			0xEF04160A)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnop"),
-			0x623D73B9)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopq"),
-			0x47DF987C)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqr"),
-			0x35FD1D12)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqr"),
-			0x35FD1D12)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrs"),
-			0xE882435E)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrst"),
-			0x951A418)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstu"),
-			0xE108A3CC)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuv"),
-			0xF957BDBC)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuvw"),
-			0xDE4DA308)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuvwx"),
-			0x82D9D312)
-		lu.assertEquals(LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuvwxy"),
-			0x8E08E8E)
-		lu.assertEquals(
-			LibDeflate:Crc32("1234567890abcdefghijklmnopqrstuvwxyz"),
-			0x68DA3906)
-		lu.assertEquals(LibDeflate:Crc32(
-			"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"),
-			0xED3E1945)
+		for str, expected_crc32 in pairs(_crc_expected) do
+			lu.assertEquals(expected_crc32,LibDeflate:Crc32(str))
+		end
 		local adler32Test = GetFileData("tests/data/adler32Test.txt")
 		lu.assertEquals(LibDeflate:Crc32(adler32Test), 0x6E99FB92)
 		local adler32Test2 = GetFileData("tests/data/adler32Test2.txt")
 		lu.assertEquals(LibDeflate:Crc32(adler32Test2), 0x01294F1F)
 	end
+	function TestInternals:TestCrc32WithInitValue()
+		for str, expected_crc32 in pairs(_crc_expected) do
+			for i = 1, #str + 1 do
+				local first_half = str:sub(1, i-1)
+				local second_half = str:sub(i, #str)
+				lu.assertEquals(expected_crc32,
+				LibDeflate:Crc32(second_half, LibDeflate:Crc32(first_half)))
+			end
+
+		end
+	end
+end
 
 	function TestInternals:TestLibStub()
 		-- Start of LibStub
@@ -3071,18 +3073,18 @@ TestCommandLine = {}
 
 		local str = LibDeflate._COPYRIGHT
 			.."\nUsage: lua LibDeflate.lua [OPTION] [INPUT] [OUTPUT]\n"
-			.."  -0    store only. no compression.\n"
-			.."  -1    fastest compression.\n"
-			.."  -9    slowest and best compression.\n"
-			.."  -d    do decompression instead of compression.\n"
-			.."  --dict <filename> specify the file that contains"
+			.." -0  store only. no compression.\n"
+			.." -1  fastest compression.\n"
+			.." -9  slowest and best compression.\n"
+			.." -d  do decompression instead of compression.\n"
+			.." --dict <filename> specify the file that contains"
 			.." the entire preset dictionary.\n"
-			.."  --gzip  use gzip format instead of raw deflate.\n"
-			.."  -h    give this help.\n"
-			.."  --strategy <fixed/huffman_only/dynamic>"
+			.." --gzip use gzip format instead of raw deflate.\n"
+			.." -h  give this help.\n"
+			.." --strategy <fixed/huffman_only/dynamic>"
 			.." specify a special compression strategy.\n"
-			.."  -v    print the version and copyright info.\n"
-			.."  --zlib  use zlib format instead of raw deflate.\n"
+			.." -v  print the version and copyright info.\n"
+			.." --zlib use zlib format instead of raw deflate.\n"
 
 		if stdout:find(str, 1, true) then
 			lu.assertStrContains(stdout, str)
@@ -3471,7 +3473,7 @@ local function CheckCompressAndDecompressLibCompress(
 				.." LibCompress decompress result not match origin string.")
 
 			print(
-				("%s:   Size : %d B,Time: %.3f ms, "
+				("%s:  Size : %d B,Time: %.3f ms, "
 					.."Speed: %.0f KB/s, Memory: %d B,"
 					.." Mem/input: %.2f, (memleak?: %d B)\n")
 					:format(compress_func_name,
@@ -3481,7 +3483,7 @@ local function CheckCompressAndDecompressLibCompress(
 						compress_memory_used/origin:len(),
 						compress_memory_leaked
 				),
-				("%s:   cRatio: %.2f,Time: %.3f ms"
+				("%s:  cRatio: %.2f,Time: %.3f ms"
 					..", Speed: %.0f KB/s, Memory: %d B,"
 					.." Mem/input: %.2f, (memleak?: %d B)"):format(
 					decompress_to_run[j][1],
