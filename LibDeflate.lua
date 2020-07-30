@@ -465,8 +465,7 @@ end
 -- @return true if valid, false if not valid.
 -- @return if not valid, the error message.
 local function IsValidArguments(str,
-	check_dictionary, dictionary,
-	check_configs, configs)
+	check_dictionary, dictionary)
 
 	if type(str) ~= "string" then
 		return false,
@@ -476,31 +475,6 @@ local function IsValidArguments(str,
 		local dict_valid, dict_err = IsValidDictionary(dictionary)
 		if not dict_valid then
 			return false, dict_err
-		end
-	end
-	if check_configs then
-		local type_configs = type(configs)
-		if type_configs ~= "nil" and type_configs ~= "table" then
-			return false,
-			("'configs' - nil or table expected got '%s'.")
-				:format(type(configs))
-		end
-		if type_configs == "table" then
-			for k, v in pairs(configs) do
-				if k ~= "level" and k ~= "strategy" then
-					return false,
-					("'configs' - unsupported table key in the configs: '%s'.")
-					:format(k)
-				elseif k == "level" and not _compression_level_configs[v] then
-					return false,
-					("'configs' - unsupported 'level': %s."):format(tostring(v))
-				elseif k == "strategy" and v ~= "fixed" and v ~= "huffman_only"
-						and v ~= "dynamic" then
-						-- random_block_type is for testing purpose
-					return false, ("'configs' - unsupported 'strategy': '%s'.")
-						:format(tostring(v))
-				end
-			end
 		end
 	end
 	return true, ""
