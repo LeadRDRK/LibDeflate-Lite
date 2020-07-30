@@ -407,20 +407,6 @@ local dictionary32768 = LibDeflate:CreateDictionary(dictionary32768_str
 local _CheckCompressAndDecompressCounter = 0
 local function CheckCompressAndDecompress(string_or_filename, is_file, levels
 	, strategy, output_prefix)
-
-	-- For 100% code coverage
-	if _CheckCompressAndDecompressCounter % 3 == 0 then
-		LibDeflate.internals.InternalClearCache()
-	end
-	if _CheckCompressAndDecompressCounter % 2 == 0 then
-		-- Init cache table in these functions
-		-- , to help memory leak check in the following codes.
-		LibDeflate:EncodeForWoWAddonChannel("")
-		LibDeflate:EncodeForWoWChatChannel("")
-	else
-		LibDeflate:DecodeForWoWAddonChannel("")
-		LibDeflate:DecodeForWoWChatChannel("")
-	end
 	_CheckCompressAndDecompressCounter = _CheckCompressAndDecompressCounter + 1
 
 	local origin
@@ -1793,48 +1779,6 @@ TestDecompress = {}
 	end
 
 TestInternals = {}
-	-- Test from puff
-	function TestInternals:TestLoadString()
-		local LoadStringToTable = LibDeflate.internals.LoadStringToTable
-		local tmp
-		for _=1, 50 do
-			local t = {}
-			local strlen = math.random(0, 1000)
-			local str = GetLimitedRandomString(strlen)
-			local uncorruped_data = {}
-			for i=1, strlen do
-				uncorruped_data[i] = math.random(1, 12345)
-				t[i] = uncorruped_data[i]
-			end
-			local start
-			local stop
-			if strlen >= 1 then
-				start = math.random(1, strlen)
-				stop = math.random(1, strlen)
-			else
-				start = 1
-				stop = 0
-			end
-			if start > stop then
-				tmp = start
-				start = stop
-				stop = tmp
-			end
-			local offset = math.random(0, strlen)
-			LoadStringToTable(str, t, start, stop, offset)
-			for i=-1000, 2000 do
-				if i < start-offset or i > stop-offset then
-					lu.assertEquals(t[i], uncorruped_data[i]
-						, "loadStr corrupts unintended location")
-				else
-					lu.assertEquals(t[i], string_byte(str, i+offset)
-					, ("loadStr gives wrong data!, start=%d, stop=%d, i=%d")
-						:format(start, stop, i))
-				end
-			end
-		end
-	end
-
 	function TestInternals:TestSimpleRandom()
 		for _=1, 30 do
 			local strlen = math.random(0, 1000)
@@ -1998,43 +1942,6 @@ TestInternals = {}
 				, ("Too much Memory leak after LibStub update: %d")
 				:format(memory4-memory3))
 		end
-	end
-
-	function TestInternals:TestByteTo6bitChar()
-		local _byte_to_6bit_char = LibDeflate.internals._byte_to_6bit_char
-		lu.assertNotNil(_byte_to_6bit_char)
-		lu.assertEquals(GetTableSize(_byte_to_6bit_char), 64)
-		for i= 0, 25 do
-			lu.assertEquals(_byte_to_6bit_char[i],
-				string.char(string.byte("a", 1) + i))
-		end
-		for i = 26, 51 do
-			lu.assertEquals(_byte_to_6bit_char[i],
-				string.char(string.byte("A", 1) + i - 26))
-		end
-		for i = 52, 61 do
-			lu.assertEquals(_byte_to_6bit_char[i],
-				string.char(string.byte("0", 1) + i - 52))
-		end
-		lu.assertEquals(_byte_to_6bit_char[62], "(")
-		lu.assertEquals(_byte_to_6bit_char[63], ")")
-	end
-
-	function TestInternals:Test6BitToByte()
-		local _6bit_to_byte = LibDeflate.internals._6bit_to_byte
-		lu.assertNotNil(_6bit_to_byte)
-		lu.assertEquals(GetTableSize(_6bit_to_byte), 64)
-		for i = string.byte("a", 1), string.byte("z", 1) do
-			lu.assertEquals(_6bit_to_byte[i], i - string.byte("a", 1))
-		end
-		for i = string.byte("A", 1), string.byte("Z", 1) do
-			lu.assertEquals(_6bit_to_byte[i], i - string.byte("A", 1) + 26)
-		end
-		for i = string.byte("0", 1), string.byte("9", 1) do
-			lu.assertEquals(_6bit_to_byte[i], i - string.byte("0", 1) + 52)
-		end
-		lu.assertEquals(_6bit_to_byte[string.byte("(", 1)], 62)
-		lu.assertEquals(_6bit_to_byte[string.byte(")", 1)], 63)
 	end
 
 TestPresetDict = {}
